@@ -2,18 +2,24 @@ package ti4.service.tech;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
-import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import net.dv8tion.jda.api.interactions.components.ComponentInteraction;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
-import ti4.buttons.UnfiledButtonHandlers;
-import ti4.buttons.handlers.faction.zephyrion.ZephyrionBountyButtonHandler;
+import ti4.contest.replay.service.CombatReplayService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.zephyrion.ZephyrionBountyButtonHandler;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.ButtonHelper;
@@ -29,18 +35,15 @@ import ti4.helpers.Helper;
 import ti4.helpers.PatternHelper;
 import ti4.helpers.StringHelper;
 import ti4.helpers.Units;
+import ti4.helpers.Units.UnitType;
 import ti4.helpers.ignis_aurora.IgnisAuroraHelperTechs;
 import ti4.helpers.thundersedge.TeHelperTechs;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.GameMessageManager;
 import ti4.message.GameMessageType;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.TechnologyModel;
 import ti4.model.TemporaryCombatModifierModel;
 import ti4.model.metadata.TechSummariesMetadataManager;
@@ -48,6 +51,7 @@ import ti4.service.RemoveCommandCounterService;
 import ti4.service.agenda.IsPlayerElectedService;
 import ti4.service.breakthrough.VisionariaSelectService;
 import ti4.service.emoji.CardEmojis;
+import ti4.service.emoji.ColorEmojis;
 import ti4.service.emoji.ExploreEmojis;
 import ti4.service.emoji.FactionEmojis;
 import ti4.service.leader.CommanderUnlockCheckService;
@@ -57,6 +61,7 @@ import ti4.service.turn.StartTurnService;
 import ti4.service.unit.AddUnitService;
 import ti4.service.unit.CheckUnitContainmentService;
 import ti4.settings.users.UserSettingsManager;
+import ti4.spring.context.SpringContext;
 
 @UtilityClass
 public class PlayerTechService {
@@ -239,6 +244,11 @@ public class PlayerTechService {
                         event.getMessageChannel(),
                         player.getRepresentation()
                                 + " exhausted _Graviton Laser System_. The auto-assign hits button for SPACE CANNON OFFENSE fire will now kill fighters last.");
+                if (event instanceof ButtonInteractionEvent buttonEvent) {
+                    SpringContext.getBean(CombatReplayService.class)
+                            .mirrorGravitonExhausted(
+                                    game, player, buttonEvent.getChannel().getName());
+                }
                 game.setStoredValue(player.getFaction() + "graviton", "true");
                 deleteTheOneButtonIfButtonEvent(event);
             }
@@ -251,7 +261,7 @@ public class PlayerTechService {
                 deleteTheOneButtonIfButtonEvent(event);
             }
             case "dsmortr" -> {
-                UnfiledButtonHandlers.startGlimmersRedTech(player, game);
+                startGlimmersRedTech(player);
                 deleteTheOneButtonIfButtonEvent(event);
             }
             case "dsceldr" -> {
@@ -367,23 +377,7 @@ public class PlayerTechService {
             case "bazephy" -> ZephyrionBountyButtonHandler.offerBountyButtons(game, player);
             case "mi" -> { // Mageon
                 deleteIfButtonEvent(event);
-                List<Button> buttons = new ArrayList<>();
-                for (Player p2 : game.getRealPlayers()) {
-                    if (p2 == player || p2.getAcCount() == 0) {
-                        continue;
-                    }
-                    if (game.isFowMode()) {
-                        buttons.add(Buttons.gray(
-                                player.getFinsFactionCheckerPrefix() + "getACFrom_" + p2.getFaction(), p2.getColor()));
-                    } else {
-                        Button button = Buttons.gray(
-                                player.getFinsFactionCheckerPrefix() + "getACFrom_" + p2.getFaction(),
-                                p2.getFactionModel().getShortName());
-                        String factionEmojiString = p2.getFactionEmoji();
-                        button = button.withEmoji(Emoji.fromFormatted(factionEmojiString));
-                        buttons.add(button);
-                    }
-                }
+                List<Button> buttons = getMageonImplantsButtons(game, player);
                 String message = player.getRepresentationUnfogged()
                         + ", please choose who you wish to target with _Mageon Implants_.";
                 MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message, buttons);
@@ -515,26 +509,9 @@ public class PlayerTechService {
             }
             case "sr", "absol_sar" -> { // Sling Relay or Absol Self Assembley Routines
                 deleteIfButtonEvent(event);
-                List<Button> buttons = new ArrayList<>();
-                List<Tile> tiles = new ArrayList<>(CheckUnitContainmentService.getTilesContainingPlayersUnits(
-                        game, player, Units.UnitType.Spacedock, Units.UnitType.PlenaryOrbital));
-                if (player.hasUnit("ghoti_flagship")) {
-                    tiles.addAll(CheckUnitContainmentService.getTilesContainingPlayersUnits(
-                            game, player, Units.UnitType.Flagship));
-                }
-                List<String> pos2 = new ArrayList<>();
-                for (Tile tile : tiles) {
-                    if (!pos2.contains(tile.getPosition())) {
-                        String buttonID = "produceOneUnitInTile_" + tile.getPosition() + "_sling";
-                        Button tileButton = Buttons.green(buttonID, tile.getRepresentationForButtons(game, player));
-                        buttons.add(tileButton);
-                        pos2.add(tile.getPosition());
-                    }
-                }
-                MessageHelper.sendMessageToChannelWithButtons(
-                        event.getMessageChannel(),
-                        "Please choose which system you wish to produce a ship in.",
-                        buttons);
+                String msg = "Please choose the system in which you wish to produce a ship.";
+                List<Button> buttons = getSlingRelayButtons(game, player);
+                MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), msg, buttons);
                 sendNextActionButtonsIfButtonEvent(event, game, player);
             }
             case "dsdihmy" -> { // Impressment Programs
@@ -547,6 +524,45 @@ public class PlayerTechService {
                 MessageHelper.sendMessageToChannel(
                         event.getMessageChannel(), "> This technology is not automated. Please resolve manually.");
         }
+    }
+
+    public static List<Button> getSlingRelayButtons(Game game, Player player) {
+        Set<Tile> tiles = new HashSet<>(
+                ButtonHelper.getTilesOfPlayersSpecificUnits(game, player, UnitType.Spacedock, UnitType.PlenaryOrbital));
+        if (player.hasUnit("ghoti_flagship")) {
+            tiles.addAll(ButtonHelper.getTilesOfPlayersSpecificUnits(game, player, Units.UnitType.Flagship));
+        }
+
+        List<Button> buttons = new ArrayList<>();
+        List<String> pos2 = new ArrayList<>();
+        for (Tile tile : tiles) {
+            if (!pos2.contains(tile.getPosition())) {
+                String buttonID = "produceOneUnitInTile_" + tile.getPosition() + "_sling";
+                Button tileButton = Buttons.green(buttonID, tile.getRepresentationForButtons(game, player));
+                buttons.add(tileButton);
+                pos2.add(tile.getPosition());
+            }
+        }
+        return buttons;
+    }
+
+    public static List<Button> getMageonImplantsButtons(Game game, Player player) {
+        List<Button> buttons = new ArrayList<>();
+        for (Player p2 : game.getRealPlayers()) {
+            if (p2 == player || p2.getAcCount() == 0) continue;
+
+            String id = player.finChecker() + "getACFrom_" + p2.getFaction();
+            String label = p2.getFactionModel().getShortName();
+            String emoji = p2.getFactionEmoji();
+
+            if (game.isFowMode()) {
+                label = p2.getColor();
+                emoji = ColorEmojis.getColorEmoji(p2.getColor()).toString();
+            }
+
+            buttons.add(Buttons.gray(id, label, emoji));
+        }
+        return buttons;
     }
 
     public static void checkAndApplyCombatMods(GenericInteractionCreateEvent event, Player player, String techID) {
@@ -562,7 +578,7 @@ public class PlayerTechService {
 
     private static void deleteIfButtonEvent(GenericInteractionCreateEvent event) {
         if (event instanceof ButtonInteractionEvent) {
-            ((ButtonInteractionEvent) event).getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
+            ((ComponentInteraction) event).getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
         }
     }
 
@@ -926,5 +942,27 @@ public class PlayerTechService {
                             + ", due to the _Anti-Intellectual Revolution_ law, you now have to destroy a non-fighter ship (if you __researched__ the technology you just acquired).",
                     Buttons.gray("getModifyTiles", "Modify Units"));
         }
+    }
+
+    private static void startGlimmersRedTech(Player player) {
+        Set<Units.UnitType> allowedUnits = Set.of(
+                Units.UnitType.Fighter,
+                Units.UnitType.Destroyer,
+                Units.UnitType.Cruiser,
+                Units.UnitType.Carrier,
+                Units.UnitType.Dreadnought,
+                Units.UnitType.Flagship,
+                Units.UnitType.Warsun);
+
+        List<Button> buttons = new ArrayList<>();
+        for (Units.UnitType unit : allowedUnits) {
+            buttons.add(
+                    Buttons.green("endGlimmersRedTech_" + unit.plainName(), unit.plainName(), unit.getUnitTypeEmoji()));
+        }
+        MessageHelper.sendMessageToChannelWithButtons(
+                player.getCorrectChannel(),
+                player.getRepresentation()
+                        + ", please choose the unit that was destroyed, and that you will be placing via _Fractal Plating_.",
+                buttons);
     }
 }

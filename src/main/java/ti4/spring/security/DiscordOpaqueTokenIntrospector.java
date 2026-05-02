@@ -12,7 +12,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticatedPrincipal;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector;
 import org.springframework.stereotype.Component;
-import ti4.message.logging.BotLogger;
+import ti4.logging.BotLogger;
 import ti4.spring.api.auth.DiscordUserInfo;
 import ti4.spring.api.auth.RestDiscordClient;
 
@@ -32,7 +32,6 @@ public class DiscordOpaqueTokenIntrospector implements OpaqueTokenIntrospector {
 
     @Override
     public OAuth2AuthenticatedPrincipal introspect(String token) {
-        if (token == null) throw new OAuth2AuthenticationException("No token provided");
 
         try {
             return authenticate(token);

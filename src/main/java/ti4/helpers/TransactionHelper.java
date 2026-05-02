@@ -22,17 +22,17 @@ import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.discord.interactions.routing.ModalHandler;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.UnitHolder;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
 import ti4.image.TransactionGenerator;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.listeners.annotations.ModalHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.PromissoryNoteModel;
 import ti4.service.agenda.IsPlayerElectedService;
 import ti4.service.emoji.CardEmojis;
@@ -651,12 +651,11 @@ public final class TransactionHelper {
         transaction(null, player, game, "");
     }
 
-    @ButtonHandler(value = "transact_BMD", save = true) // deprecated
-    @ButtonHandler(value = "transaction_BMD", save = true)
+    @ButtonHandler("transaction_BMD")
     @ButtonHandler(value = "transaction", save = false)
     private static void transaction(ButtonInteractionEvent event, Player player, Game game, String buttonID) {
         if (buttonID.endsWith("_BMD")) {
-            game.setStoredValue("blackmarketdealing", player.getFaction());
+            player.setStoredValue("bmd", "y");
             ButtonHelper.deleteMessage(event);
         }
 
@@ -951,6 +950,7 @@ public final class TransactionHelper {
 
                 boolean blackmarket =
                         List.of(p1.getFaction(), p2.getFaction()).contains(game.getStoredValue("blackmarketdealing"));
+                blackmarket |= p1.hasStoredValue("bmd") || p2.hasStoredValue("bmd");
                 for (String relic : (blackmarket ? p1.getActualRelics() : p1.getTradableRelics())) {
                     String name = Mapper.getRelic(relic).getName();
                     stuffToTransButtons.add(Buttons.gray(prefix + "_" + relic, name, ExploreEmojis.Relic));
@@ -1223,6 +1223,13 @@ public final class TransactionHelper {
         }
 
         String bmdSuffix = "";
+        if (player.hasStoredValue("bmd")) {
+            bmdSuffix = "_BMD_" + player.getFaction();
+            player.removeStoredValue("bmd");
+        } else if (p2.hasStoredValue("bmd")) {
+            bmdSuffix = "_BMD_" + p2.getFaction();
+            p2.removeStoredValue("bmd");
+        }
         for (Player bmdPlayer : List.of(player, p2)) {
             if (game.getStoredValue("blackmarketdealing").equals(bmdPlayer.getFaction())) {
                 bmdSuffix = "_BMD_" + bmdPlayer.getFaction();
@@ -1478,7 +1485,7 @@ public final class TransactionHelper {
         String factionToTrans = buttonID.substring(0, buttonID.indexOf('_'));
         String amountToTrans = buttonID.substring(buttonID.indexOf('_') + 1);
         Player p2 = game.getPlayerFromColorOrFaction(factionToTrans);
-        if (p1 == null || p2 == null) return;
+        if (p2 == null) return;
 
         String message2 = "";
         String ident = p1.getRepresentation();
@@ -1603,6 +1610,7 @@ public final class TransactionHelper {
 
                 boolean blackMarket =
                         List.of(p1.getFaction(), p2.getFaction()).contains(game.getStoredValue("blackmarketdealing"));
+                blackMarket |= p1.hasStoredValue("bmd") || p2.hasStoredValue("bmd");
                 if (!p1.hasAbility("arbiters") && !p2.hasAbility("arbiters") && !blackMarket) {
                     if (game.isFowMode()) {
                         MessageHelper.sendMessageToChannel(p1.getPrivateChannel(), message2);
@@ -1737,9 +1745,6 @@ public final class TransactionHelper {
     }
 
     private static boolean canTheseTwoTransact(Game game, Player player, Player player2) {
-        // if(game.getRealPlayers().size() > 26){
-        //     return true;
-        // }
         if (IsPlayerElectedService.isPlayerElected(game, player2, "tf-censure")
                 || IsPlayerElectedService.isPlayerElected(game, player, "tf-censure")) {
             return false;
@@ -1793,7 +1798,7 @@ public final class TransactionHelper {
                     continue;
                 }
                 String faction = player.getFaction();
-                if (faction != null && Mapper.isValidFaction(faction)) {
+                if (Mapper.isValidFaction(faction)) {
                     Button button;
                     if (!game.isFowMode()) {
                         String label = player.getUserName();
@@ -1820,6 +1825,12 @@ public final class TransactionHelper {
     private static List<Button> getStuffToTransButtonsNew(Game game, Player player, Player p1, Player p2) {
         boolean blackMarket =
                 List.of(p1.getFaction(), p2.getFaction()).contains(game.getStoredValue("blackmarketdealing"));
+        blackMarket |= p1.hasStoredValue("bmd") || p2.hasStoredValue("bmd");
+        blackMarket &= !game.isTwilightsFallMode();
+
+        boolean graft = p1.hasStoredValue("bmd") || p2.hasStoredValue("bmd");
+        graft &= game.isTwilightsFallMode();
+
         List<Button> stuffToTransButtons = new ArrayList<>();
         if (p1.getTg() > 0) {
             stuffToTransButtons.add(
@@ -1875,7 +1886,7 @@ public final class TransactionHelper {
             stuffToTransButtons.add(
                     Buttons.green("newTransact_Frags_" + p1.getFaction() + "_" + p2.getFaction(), "Fragments"));
         }
-        if ((blackMarket && !p1.getActualRelics().isEmpty())
+        if (((blackMarket || graft) && !p1.getActualRelics().isEmpty())
                 || !p1.getTradableRelics().isEmpty()) {
             stuffToTransButtons.add(
                     Buttons.gray("newTransact_Relics_" + p1.getFaction() + "_" + p2.getFaction(), "Relics"));
@@ -2061,7 +2072,7 @@ public final class TransactionHelper {
                 msg += "or is being counter offered. Therefore, the next transaction offer you make will be ";
                 msg += "allowed to use _Black Market Dealing_ again.";
                 MessageHelper.sendMessageToChannel(bmdPlayer.getCardsInfoThread(), msg);
-                game.setStoredValue("blackmarketdealing", prevBlackMarketFaction);
+                bmdPlayer.setStoredValue("bmd", "y");
             }
         }
     }

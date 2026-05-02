@@ -7,13 +7,14 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
-import ti4.map.persistence.ManagedGame;
-import ti4.message.logging.BotLogger;
+import ti4.discord.JdaService;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
+import ti4.game.persistence.ManagedGame;
+import ti4.helpers.TIGLHelper;
+import ti4.logging.BotLogger;
 import ti4.service.map.FractureService;
-import ti4.spring.jda.JdaService;
 
 @Service
 @RequiredArgsConstructor
@@ -57,6 +58,8 @@ public class PersistAllEntitiesService {
         List<TitleEntity> titleEntities = new ArrayList<>();
         for (ManagedGame managedGame : GameManager.getManagedGames()) {
             Game game = managedGame.getGame();
+            if (game.getRealAndEliminatedPlayers().size() < 3) continue;
+
             var gameEntity = toEntity(game, userCache);
             gameEntities.add(gameEntity);
             titleEntities.addAll(toTitleEntities(game, gameEntity, userCache));
@@ -83,6 +86,8 @@ public class PersistAllEntitiesService {
         gameEntity.setFrankenMode(game.isFrankenGame());
         gameEntity.setAllianceMode(game.isAllianceMode());
         gameEntity.setTwilightImperiumGlobalLeague(game.isCompetitiveTIGLGame());
+        gameEntity.setTwilightImperiumGlobalLeagueFractured(
+                game.isCompetitiveTIGLGame() && TIGLHelper.isFracturedTIGLGame(game));
         gameEntity.setTwilightImperiumGlobalLeagueRank(
                 game.getMinimumTIGLRankAtGameStart() == null
                         ? null
@@ -139,7 +144,7 @@ public class PersistAllEntitiesService {
 
     private List<TitleEntity> toTitleEntities(Game game, GameEntity gameEntity, Map<String, UserEntity> userCache) {
         List<TitleEntity> titles = new ArrayList<>();
-        for (String storedValue : game.getMessagesThatICheckedForAllReacts().keySet()) {
+        for (String storedValue : game.getStoredValueMap().keySet()) {
             if (!storedValue.startsWith("TitlesFor")) {
                 continue;
             }

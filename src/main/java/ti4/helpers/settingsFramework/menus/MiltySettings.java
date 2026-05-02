@@ -9,11 +9,11 @@ import lombok.Getter;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.jetbrains.annotations.NotNull;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
 import ti4.helpers.settingsFramework.settings.ChoiceSetting;
 import ti4.helpers.settingsFramework.settings.SettingInterface;
 import ti4.image.Mapper;
-import ti4.map.Game;
 import ti4.model.MapTemplateModel;
 import ti4.model.Source.ComponentSource;
 import ti4.service.draft.DraftSetupService;
@@ -111,11 +111,6 @@ public class MiltySettings extends SettingsMenu {
         String prefix = menuAction + "_" + navId() + "_";
 
         buttons.add(Buttons.green(prefix + "startMilty", "Start Milty Draft!"));
-        // switch (draftMode.getValue()) {
-        //     case milty -> buttons.add(Buttons.green(prefix + "startMilty", "Start Milty Draft!"));
-        //     case franken -> buttons.add(Buttons.green(prefix + "startFranken", "Start Franken Draft!"));
-        //     default -> buttons.clear();
-        // }
         return buttons;
     }
 

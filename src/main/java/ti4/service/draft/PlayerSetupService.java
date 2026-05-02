@@ -11,8 +11,11 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.StringUtils;
-import ti4.buttons.Buttons;
-import ti4.commands.tokens.AddTokenCommand;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.commands.tokens.AddTokenCommand;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAbilities;
@@ -25,9 +28,6 @@ import ti4.helpers.Units;
 import ti4.helpers.thundersedge.BreakthroughCommandHelper;
 import ti4.image.Mapper;
 import ti4.image.PositionMapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
 import ti4.message.MessageHelper;
 import ti4.model.FactionModel;
 import ti4.model.Source;
@@ -218,7 +218,7 @@ public class PlayerSetupService {
             }
         }
 
-        if (!"techs_tf".equals(game.getTechnologyDeckID())) {
+        if (!game.getTechnologyDeckID().equals(game.getAbilitySpliceDeckID())) {
             Map<String, TechnologyModel> techReplacements =
                     Mapper.getHomebrewTechReplaceMap(game.getTechnologyDeckID());
             List<String> playerTechs = new ArrayList<>(player.getTechs());

@@ -1,6 +1,6 @@
 package ti4.draft;
 
-import ti4.map.Game;
+import ti4.game.Game;
 
 public class TwilightsFallFrankenDraft extends FrankenDraft {
 
@@ -22,10 +22,8 @@ public class TwilightsFallFrankenDraft extends FrankenDraft {
     public int getKeptItemLimitForCategory(DraftCategory category) {
         return switch (category) {
             case BLUETILE -> 3;
-            case REDTILE -> 2;
-            case TECH -> 2;
-            case DRAFTORDER, MAHACTKING, STARTINGFLEET -> 1;
-            case HOMESYSTEM, AGENT, UNIT -> 1;
+            case REDTILE, TECH -> 2;
+            case DRAFTORDER, MAHACTKING, STARTINGFLEET, HOMESYSTEM, AGENT, UNIT -> 1;
             default -> 0;
         };
     }

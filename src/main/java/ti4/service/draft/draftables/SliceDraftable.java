@@ -7,18 +7,18 @@ import java.util.function.Consumer;
 import lombok.Getter;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.persistence.GameManager;
 import ti4.helpers.settingsFramework.menus.DraftSystemSettings;
 import ti4.helpers.settingsFramework.menus.NucleusSliceDraftableSettings;
 import ti4.helpers.settingsFramework.menus.SettingsMenu;
 import ti4.helpers.settingsFramework.menus.SliceDraftableSettings;
 import ti4.helpers.settingsFramework.menus.SliceDraftableSettings.MapGenerationMode;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.persistence.GameManager;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.MapTemplateModel;
 import ti4.service.draft.DraftChoice;
 import ti4.service.draft.DraftManager;
@@ -246,6 +246,7 @@ public class SliceDraftable extends SinglePickDraftable {
             }
             initialize(outcome.slices());
             game.getDraftManager().tryStartDraft();
+            // TODO: We should be locking since we're saving
             GameManager.save(game, "Nucleus generation");
         });
 
@@ -304,6 +305,7 @@ public class SliceDraftable extends SinglePickDraftable {
         SliceGenerationPipeline.queue(event, this, game.getDraftTileManager(), specs, (Boolean success) -> {
             if (success) {
                 game.getDraftManager().tryStartDraft();
+                // TODO: We should be locking since we're saving
                 GameManager.save(game, "Milty generation");
             } else {
                 MessageHelper.sendMessageToChannel(

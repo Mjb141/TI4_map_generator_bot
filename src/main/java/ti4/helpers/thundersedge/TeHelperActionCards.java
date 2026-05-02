@@ -9,8 +9,12 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
-import ti4.commands.special.SetupNeutralPlayer;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAbilities;
@@ -22,13 +26,8 @@ import ti4.helpers.NewStuffHelper;
 import ti4.helpers.RegexHelper;
 import ti4.helpers.SecretObjectiveHelper;
 import ti4.helpers.Units.UnitType;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.ActionCardModel;
 import ti4.service.abilities.MahactTokenService;
 import ti4.service.emoji.CardEmojis;
@@ -56,10 +55,9 @@ public class TeHelperActionCards {
                 buttons.add(Buttons.green(ffcc + "transaction_BMD", "Start Black Market Transaction"));
             case "brilliance" -> buttons.add(Buttons.green(ffcc + "brilliance", resolve));
             case "crashlanding" -> buttons.add(Buttons.green(ffcc + "crashLandingStart", "Start Crash Landing"));
-            case "crisis" -> nop(); // preset
+            case "crisis", "extremeduress" -> nop(); // preset
             case "exchangeprogram" ->
                 buttons.add(Buttons.green(ffcc + "exchangeProgramStart", "Start Exchange Program"));
-            case "extremeduress" -> nop(); // preset
             case "lieinwait" -> buttons.add(Buttons.green(ffcc + "lieInWait", resolve));
             case "mercenarycontract" -> buttons.add(Buttons.green(ffcc + "teMercenaryContract_page0", resolve));
             case "piratecontract" -> buttons.add(Buttons.green(ffcc + "pirateContract", resolve));
@@ -70,7 +68,7 @@ public class TeHelperActionCards {
             case "strategize" -> buttons.add(Buttons.green(ffcc + "strategize", resolve));
         }
 
-        if (buttons != null && !buttons.isEmpty()) {
+        if (!buttons.isEmpty()) {
             MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), introMsg, buttons);
             return true;
         }
@@ -348,11 +346,6 @@ public class TeHelperActionCards {
 
         String prefix = player.finChecker() + "teMercenaryContract_";
         String message = player.getRepresentation() + ", please choose a planet to place 2 neutral infantry on.";
-        Player neutral = game.getPlayerFromColorOrFaction("neutral");
-        if (neutral == null) {
-            String color = SetupNeutralPlayer.pickNeutralColor(game);
-            game.setupNeutralPlayer(color);
-        }
         NewStuffHelper.checkAndHandlePaginationChange(
                 event, player.getCorrectChannel(), buttons, message, prefix, buttonID);
         ButtonHelper.deleteMessage(event);
@@ -457,11 +450,6 @@ public class TeHelperActionCards {
     @ButtonHandler("resolvePirateContract_")
     private static void resolvePirateContract(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
         String regex = "resolvePirateContract_" + RegexHelper.posRegex();
-        Player neutral = game.getPlayerFromColorOrFaction("neutral");
-        if (neutral == null) {
-            String color = SetupNeutralPlayer.pickNeutralColor(game);
-            game.setupNeutralPlayer(color);
-        }
         RegexService.runMatcher(regex, buttonID, matcher -> {
             Tile tile = game.getTileByPosition(matcher.group("pos"));
             resolvePiratesGeneric(event, game, player, tile, "dd");
@@ -476,11 +464,6 @@ public class TeHelperActionCards {
     @ButtonHandler("resolveNokarBt_")
     private static void resolveNokarBt(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
         String regex = "resolveNokarBt_" + RegexHelper.posRegex();
-        Player neutral = game.getPlayerFromColorOrFaction("neutral");
-        if (neutral == null) {
-            String color = SetupNeutralPlayer.pickNeutralColor(game);
-            game.setupNeutralPlayer(color);
-        }
         RegexService.runMatcher(regex, buttonID, matcher -> {
             Tile tile = game.getTileByPosition(matcher.group("pos"));
             resolvePiratesGeneric(event, game, player, tile, "2 dd, cr");
@@ -495,11 +478,6 @@ public class TeHelperActionCards {
     @ButtonHandler("resolvePirateFleet_")
     private static void resolvePirateFleet(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
         String regex = "resolvePirateFleet_" + RegexHelper.posRegex();
-        Player neutral = game.getPlayerFromColorOrFaction("neutral");
-        if (neutral == null) {
-            String color = SetupNeutralPlayer.pickNeutralColor(game);
-            game.setupNeutralPlayer(color);
-        }
         RegexService.runMatcher(regex, buttonID, matcher -> {
             Tile tile = game.getTileByPosition(matcher.group("pos"));
             resolvePiratesGeneric(event, game, player, tile, "cv, ca, dd, 2 ff");
@@ -511,11 +489,10 @@ public class TeHelperActionCards {
         });
     }
 
-    private static void resolvePiratesGeneric(
+    public static void resolvePiratesGeneric(
             ButtonInteractionEvent event, Game game, Player player, Tile tile, String units) {
-        Player neutral = game.getPlayerFromColorOrFaction("neutral");
         tile = FlipTileService.flipTileIfNeeded(event, tile, game);
-        AddUnitService.addUnits(event, tile, game, neutral.getColorID(), units);
+        AddUnitService.addUnits(event, tile, game, game.getNeutralColor(), units);
     }
 
     @ButtonHandler("brilliance")

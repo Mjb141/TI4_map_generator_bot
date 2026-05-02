@@ -10,7 +10,16 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.contest.replay.service.CombatReplayService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.edict.EdictPhaseHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.onyxxa.OnyxxaHeroButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.xan.XanHeroButtonHandler;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.AgendaHelper;
 import ti4.helpers.ButtonHelper;
@@ -26,19 +35,12 @@ import ti4.helpers.FoWHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.RandomHelper;
 import ti4.helpers.RelicHelper;
-import ti4.helpers.Units.UnitKey;
-import ti4.helpers.Units.UnitState;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.DSHelperBreakthroughs;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.ActionCardModel;
 import ti4.model.AgendaModel;
 import ti4.model.LeaderModel;
@@ -57,15 +59,31 @@ import ti4.service.strategycard.PlayStrategyCardService;
 import ti4.service.tech.ListTechService;
 import ti4.service.unit.AddUnitService;
 import ti4.service.unit.CheckUnitContainmentService;
+import ti4.spring.context.SpringContext;
 
 @UtilityClass
 public class PlayHeroService {
+
+    public static boolean removeLeader(Game game, Player player, Leader leader) {
+        LeaderRemovalReason reason = LeaderRemovalReason.fromHeroId(leader.getId());
+        boolean removed = player.removeLeader(leader);
+        if (removed && (reason == LeaderRemovalReason.PURGED || reason == LeaderRemovalReason.STATUS_CLEANUP)) {
+            DSHelperBreakthroughs.doLanefirBtCheck(game, player);
+        }
+        return removed;
+    }
 
     public static void playHero(GenericInteractionCreateEvent event, Game game, Player player, Leader playerLeader) {
         LeaderModel leaderModel = playerLeader.getLeaderModel().orElse(null);
         boolean showFlavourText = Constants.VERBOSITY_VERBOSE.equals(game.getOutputVerbosity());
         StringBuilder sb = new StringBuilder();
         if (leaderModel != null) {
+            SpringContext.getBean(CombatReplayService.class)
+                    .mirrorLeaderPlayed(
+                            game,
+                            player,
+                            leaderModel.getAlias(),
+                            event.getChannel().getName());
             MessageHelper.sendMessageToChannel(player.getCorrectChannel(), player.getRepresentation() + " played:");
             player.getCorrectChannel()
                     .sendMessageEmbeds(leaderModel.getRepresentationEmbed(
@@ -81,12 +99,8 @@ public class PlayHeroService {
             BotLogger.warning(new LogOrigin(event), "Missing LeaderModel: " + playerLeader.getId());
         }
 
-        if ("letnevhero".equals(playerLeader.getId())
-                || "nomadhero".equals(playerLeader.getId())
-                || "zealotshero".equals(playerLeader.getId())
-                || "nokarhero".equals(playerLeader.getId())
-                || "kolumehero".equals(playerLeader.getId())
-                || "qhethero".equals(playerLeader.getId())) {
+        LeaderRemovalReason removalReason = LeaderRemovalReason.fromHeroId(playerLeader.getId());
+        if (removalReason == LeaderRemovalReason.STATUS_CLEANUP) {
             playerLeader.setLocked(false);
             playerLeader.setActive(true);
             sb.append("\nLeader will be purged after status cleanup.");
@@ -112,10 +126,9 @@ public class PlayHeroService {
                     ? "Hero " + playerLeader.getId()
                     : playerLeaderModel.getName() + ", the " + StringUtils.capitalize(playerLeaderModel.getFaction())
                             + " hero,";
-            String msg = leaderName + " has been purged.";
+            String msg = removalReason.getRemovalMessage(leaderName);
             if (!"mykomentorihero".equals(playerLeader.getId())) {
-                purged = player.removeLeader(playerLeader);
-                DSHelperBreakthroughs.doLanefirBtCheck(game, player);
+                purged = removeLeader(game, player, playerLeader);
                 ButtonHelperHeroes.checkForMykoHero(game, playerLeader.getId(), player);
             } else {
                 msg = "Coprinus Comatus, the Myko-Mentori hero, was used to copy another hero.";
@@ -193,46 +206,8 @@ public class PlayHeroService {
                     ButtonHelperRelics.offerTitansHeroButtons(player, game, event);
                 }
             }
-            case "onyxxahero" -> {
-                List<Button> buttons = new ArrayList<>();
-                for (Tile tile : game.getTileMap().values()) {
-                    if (FoWHelper.playerHasActualShipsInSystem(player, tile)) {
-                        buttons.add(Buttons.green(
-                                "moveShipToAdjacentSystemStep2_" + tile.getPosition() + "_hero",
-                                tile.getRepresentationForButtons(game, player)));
-                    }
-                }
-
-                buttons.add(Buttons.red("deleteButtons", "Done Resolving"));
-                MessageHelper.sendMessageToChannel(
-                        player.getCorrectChannel(),
-                        player.getRepresentation()
-                                + ", please use buttons to resolve your _Titles Are Silly_ hero ability.",
-                        buttons);
-            }
-            case "xanhero" -> {
-                int amount = 0;
-                for (Tile tile : game.getTileMap().values()) {
-                    for (UnitHolder uh : tile.getUnitHolders().values()) {
-                        for (UnitKey uk : uh.getUnitKeys()) {
-                            amount += uh.getUnitCountForState(uk, UnitState.dmg);
-                        }
-                    }
-                }
-                game.getTileMap().values().stream()
-                        .flatMap(t -> t.getUnitHolders().values().stream())
-                        .forEach(uh -> uh.removeAllUnitDamage(player.getColorID()));
-                String gainedTg = player.gainTG(amount, true);
-                String message = player.getRepresentation() + " repaired all " + amount
-                        + " of their damaged units, and consequently gained " + amount + " trade good"
-                        + (amount == 1 ? "" : "s") + " " + gainedTg + ".";
-                MessageHelper.sendMessageToChannel(player.getCorrectChannel(), message);
-                ButtonHelperAgents.resolveArtunoCheck(player, amount);
-                MessageHelper.sendMessageToChannel(
-                        player.getCorrectChannel(),
-                        player.getRepresentation()
-                                + " can now repair other players' units near their space docks (not automated, use `/remove_all_sustain_damage`).");
-            }
+            case "onyxxahero" -> OnyxxaHeroButtonHandler.postInitialButtons(game, player);
+            case "xanhero" -> XanHeroButtonHandler.postInitialButtons(game, player);
             case "mirvedahero" -> {
                 List<Button> buttons = Helper.getPlanetPlaceUnitButtons(player, game, "pds", "placeOneNDone_skipbuild");
                 String message = "Please choose a planet to place a PDS";
@@ -535,10 +510,7 @@ public class PlayHeroService {
                 }
             }
             case "voicehero" -> {
-                List<String> edicts = Mapper.getShuffledDeck("agendas_twilights_fall");
-                if (ButtonHelper.isLawInPlay(game, "tf-censure")) {
-                    edicts.removeIf("tf-censure"::equalsIgnoreCase);
-                }
+                List<String> edicts = EdictPhaseHandler.getEdictDeck(game);
                 List<Button> buttons = new ArrayList<>();
                 List<MessageEmbed> embeds = new ArrayList<>();
                 Player tyrant = player;
@@ -593,7 +565,7 @@ public class PlayHeroService {
                                 + " has been offered buttons to gain command tokens and look at Shrines.");
                 for (Player p2 : game.getRealPlayersExcludingThis(player)) {
                     if (p2.getSoScored() < player.getSoScored()) {
-                        List<Button> shrineButtons = ButtonHelperHeroes.getShrineButtons(player, p2, game);
+                        List<Button> shrineButtons = ButtonHelperHeroes.getShrineButtons(p2, game);
                         MessageHelper.sendMessageToChannelWithButtons(
                                 player.getCorrectChannel(),
                                 player.getRepresentationUnfogged() + " you have scored more secret objectives than "

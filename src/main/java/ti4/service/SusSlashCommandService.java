@@ -5,16 +5,16 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import ti4.commands.ParentCommand;
-import ti4.commands.SlashCommandManager;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
-import ti4.map.persistence.ManagedGame;
+import ti4.discord.JdaService;
+import ti4.discord.interactions.commands.ParentCommand;
+import ti4.discord.interactions.commands.SlashCommandManager;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
+import ti4.game.persistence.ManagedGame;
 import ti4.message.MessageHelper;
 import ti4.service.fow.GMService;
 import ti4.service.game.GameNameService;
-import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class SusSlashCommandService {

@@ -15,20 +15,20 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
 import org.jetbrains.annotations.NotNull;
-import ti4.buttons.Buttons;
-import ti4.buttons.UnfiledButtonHandlers;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.commandcounter.CommandCounterButtonHandler;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.LeaderModel;
 import ti4.model.PublicObjectiveModel;
 import ti4.model.StrategyCardModel;
@@ -206,11 +206,6 @@ public final class ButtonHelperSCs {
         List<Button> buttons = Helper.getPlanetRefreshButtons(player, game);
         Button doneRefreshing = Buttons.red("deleteButtons_diplomacy", "Done Readying Planets"); // spitItOut
         buttons.add(doneRefreshing);
-        // if (!game.isFowMode()) {
-        //     MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), message, buttons);
-        // } else {
-        //     MessageHelper.sendMessageToChannelWithButtons(player.getPrivateChannel(), message, buttons);
-        // }
         MessageHelper.sendMessageToEventChannelWithEphemeralButtons(event, message, buttons);
         if (player.hasAbility("peace_accords") && !game.isTwilightsFallMode()) {
             List<Button> buttons2 = ButtonHelperAbilities.getXxchaPeaceAccordsButtons(
@@ -1029,22 +1024,12 @@ public final class ButtonHelperSCs {
                 MessageHelper.sendMessageToEventChannelWithEphemeralButtons(event, message, buttons);
             }
         }
-        // List<MessageCreateData> messageList = MessageHelper.getMessageCreateDataObjects(message, buttons);
-        // for (MessageCreateData messageD : messageList) {
-        //     event.getHook().setEphemeral(true).sendMessage(messageD).queue(Consumers.nop(),
-        // BotLogger::catchRestError);
-        // }
     }
 
     @ButtonHandler("placeAgesMonument_")
     public static void placeAgesMonument(String buttonID, ButtonInteractionEvent event, Game game, Player player) {
         String planet = buttonID.split("_")[1];
-        AddUnitService.addUnits(
-                event,
-                game.getTileFromPlanet(planet),
-                game,
-                game.getPlayerFromColorOrFaction("neutral").getColor(),
-                "1 sd " + planet);
+        AddUnitService.addUnits(event, game.getTileFromPlanet(planet), game, game.getNeutralColor(), "1 sd " + planet);
         MessageHelper.sendMessageToChannel(
                 player.getCorrectChannel(),
                 player.getRepresentation(true, false) + " dropped a monument on "
@@ -1236,7 +1221,7 @@ public final class ButtonHelperSCs {
                 MessageHelper.sendMessageToChannel(player.getCorrectChannel(), message);
             }
             if (!player.getSCs().contains(4) && !buttonID.contains("_dont")) {
-                UnfiledButtonHandlers.reinforcementsCCPlacement(
+                CommandCounterButtonHandler.reinforcementsCCPlacement(
                         event, game, player, "reinforcements_cc_placement_" + planet);
             }
         } else {
@@ -1423,6 +1408,12 @@ public final class ButtonHelperSCs {
                     player.getRepresentationUnfogged() + " exhausted the _" + RelicHelper.sillySpelling()
                             + "_ to follow " + Helper.getSCName(scNum, game) + ".");
             player.addExhaustedRelic("emelpar");
+            if (game.isTwilightsFallMode() && (scNum == 2 || scNum == 6 || scNum == 7)) {
+                MessageHelper.sendMessageToChannel(
+                        channel,
+                        player.getRepresentation()
+                                + " Reminder that if you intend to participate in the splice, you still need to hit the participate in the splice button now.");
+            }
         }
         Emoji emojiToUse = Emoji.fromFormatted(player.getFactionEmoji());
 
@@ -1520,11 +1511,12 @@ public final class ButtonHelperSCs {
         if (!used
                 && !player.getFollowedSCs().contains(scNum)
                 && game.getPlayedSCs().contains(scNum)) {
-            if (player.getStrategicCC() > 0) {
+
+            String message = deductCC(game, player, scNum);
+            if (message.contains("1 command token has been spent from strategy pool")) {
                 ButtonHelperCommanders.resolveMuaatCommanderCheck(
                         player, game, event, "followed **" + Helper.getSCName(scNum, game) + "**");
             }
-            String message = deductCC(game, player, scNum);
 
             if (setStatus) {
                 if (!player.getFollowedSCs().contains(scNum)) {
@@ -1538,6 +1530,14 @@ public final class ButtonHelperSCs {
 
     @NotNull
     public static String deductCC(Game game, Player player, int scNum) {
+        String scName = "a strategy card";
+        if (scNum != -1) scName = "**" + Helper.getSCName(scNum, game) + "**";
+        String msgStart = " following to perform the secondary ability of " + scName + ".";
+
+        if (player.isElected("tk-endorse")) {
+            return msgStart + " You are elected for _Endorse_, so you do not spend a token.";
+        }
+
         int strategicCC = player.getStrategicCC();
         if (strategicCC == 0) {
             String msg = " have 0 command tokens in strategy pool, **can't follow.**";
@@ -1547,13 +1547,7 @@ public final class ButtonHelperSCs {
 
         strategicCC--;
         player.setStrategicCC(strategicCC);
-        if (scNum == -1) {
-            return " performing the secondary ability of a strategy card."
-                    + " 1 command token has been spent from strategy pool.";
-        }
-        String stratCardName = Helper.getSCName(scNum, game);
-        return " following to perform the secondary ability of **" + stratCardName + "**."
-                + " 1 command token has been spent from strategy pool.";
+        return msgStart + " 1 command token has been spent from strategy pool.";
     }
 
     @ButtonHandler("sc_ac_draw")

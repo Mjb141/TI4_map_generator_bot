@@ -8,10 +8,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.Data;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.Constants;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.model.PublicObjectiveModel;
 import ti4.service.info.ListPlayerInfoService;
 
@@ -106,9 +106,8 @@ public class WebObjectives {
         // Process unrevealed Stage 1 objectives
         List<String> unrevealed1 = game.getPublicObjectives1Peekable();
         boolean isRevealed = isRedTapeMode || isCivilizedSocietyMode;
-        boolean hasRedTape = isRedTapeMode;
         for (String key : unrevealed1) {
-            ObjectiveInfo objInfo = createObjectiveInfo(game, key, isRevealed, hasRedTape, 1);
+            ObjectiveInfo objInfo = createObjectiveInfo(game, key, isRevealed, isRedTapeMode, 1);
             if (objInfo != null) {
                 webObjectives.stage1Objectives.add(objInfo);
             }
@@ -135,9 +134,8 @@ public class WebObjectives {
         // Process unrevealed Stage 2 objectives
         List<String> unrevealed2 = game.getPublicObjectives2Peekable();
         boolean isRevealed = isRedTapeMode || isCivilizedSocietyMode;
-        boolean hasRedTape = isRedTapeMode;
         for (String key : unrevealed2) {
-            ObjectiveInfo objInfo = createObjectiveInfo(game, key, isRevealed, hasRedTape, 2);
+            ObjectiveInfo objInfo = createObjectiveInfo(game, key, isRevealed, isRedTapeMode, 2);
             if (objInfo != null) {
                 webObjectives.stage2Objectives.add(objInfo);
             }
@@ -152,9 +150,7 @@ public class WebObjectives {
             int pointValue = entry.getValue();
 
             ObjectiveInfo objInfo = createCustomObjectiveInfo(game, key, pointValue);
-            if (objInfo != null) {
-                webObjectives.customObjectives.add(objInfo);
-            }
+            webObjectives.customObjectives.add(objInfo);
         }
     }
 

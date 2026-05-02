@@ -14,18 +14,18 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
 import org.apache.commons.lang3.math.NumberUtils;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Space;
+import ti4.game.Tile;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Space;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.FactionModel;
 import ti4.model.LeaderModel;
 import ti4.model.PlanetModel;
@@ -73,10 +73,6 @@ public final class CryypterHelper {
 
     // Envoys
     public static void checkEnvoyUnlocks(Game game) {
-        // if (!game.isVotcMode())
-        // {
-        //    return;
-        // }
         for (Player player : game.getRealPlayers()) {
             Leader envoy = player.getLeaderByType("envoy").orElse(null);
             if (envoy != null && envoy.isLocked()) {
@@ -702,8 +698,4 @@ public final class CryypterHelper {
     }
 
     // AgendaHelper.getWinningRiders(), currently line 1832
-    // public static void handleVotCRiders()
-    // {
-    //
-    // }
 }

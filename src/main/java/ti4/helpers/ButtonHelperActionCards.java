@@ -12,18 +12,18 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.DiceHelper.Die;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.BreakthroughCommandHelper;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.ActionCardModel;
 import ti4.model.ExploreModel;
@@ -60,8 +60,6 @@ public final class ButtonHelperActionCards {
                 buttons.add(validTile);
             }
         }
-        // Button validTile2 = Buttons.red(finChecker + "deleteButtons", "Decline");
-        // buttons.add(validTile2);
         return buttons;
     }
 
@@ -113,12 +111,12 @@ public final class ButtonHelperActionCards {
                 UnitKey unitKey = unitEntry.getKey();
                 if (!player.unitBelongsToPlayer(unitKey)) continue;
 
-                if (!allowedUnits.contains(unitKey.getUnitType())) {
+                if (!allowedUnits.contains(unitKey.unitType())) {
                     continue;
                 }
 
                 UnitModel unitModel = player.getUnitFromUnitKey(unitKey);
-                String prettyName = unitModel == null ? unitKey.getUnitType().humanReadableName() : unitModel.getName();
+                String prettyName = unitModel == null ? unitKey.unitType().humanReadableName() : unitModel.getName();
                 String unitName = unitKey.unitName();
                 int totalUnits = unitEntry.getValue();
                 int damagedUnits = 0;
@@ -161,7 +159,7 @@ public final class ButtonHelperActionCards {
                 UnitKey unitKey = unitEntry.getKey();
                 if (player.unitBelongsToPlayer(unitKey)) continue;
 
-                if (!allowedUnits.contains(unitKey.getUnitType())) {
+                if (!allowedUnits.contains(unitKey.unitType())) {
                     continue;
                 }
                 Player p2 = game.getPlayerFromColorOrFaction(unitKey.getColor());
@@ -170,7 +168,7 @@ public final class ButtonHelperActionCards {
                 }
 
                 UnitModel unitModel = p2.getUnitFromUnitKey(unitKey);
-                String prettyName = unitModel == null ? unitKey.getUnitType().humanReadableName() : unitModel.getName();
+                String prettyName = unitModel == null ? unitKey.unitType().humanReadableName() : unitModel.getName();
                 String unitName = unitKey.unitName();
                 int totalUnits = unitEntry.getValue();
                 int damagedUnits = 0;
@@ -629,6 +627,8 @@ public final class ButtonHelperActionCards {
                 }
             }
         } else {
+            Map<UnitHolder, Map<UnitKey, Integer>> pendingRemovals = new HashMap<>();
+            int totalDamageDealt = 0;
             for (UnitHolder uH : tile.getUnitHolders().values()) {
                 for (UnitKey key : uH.getUnitKeys()) {
                     Player player_ = game.getPlayerFromColorOrFaction(key.getColor());
@@ -643,7 +643,7 @@ public final class ButtonHelperActionCards {
                             .append("Rolling against ")
                             .append(numOfUnit)
                             .append(' ')
-                            .append(key.getUnitType().getUnitTypeEmoji())
+                            .append(key.unitType().getUnitTypeEmoji())
                             .append(" owned by ")
                             .append(key.getColor())
                             .append(".\n");
@@ -669,11 +669,36 @@ public final class ButtonHelperActionCards {
                     result += CombatMessageHelper.displayHitResults(totalHits);
                     player.setActualHits(player.getActualHits() + totalHits);
                     MessageHelper.sendMessageToChannel(event.getMessageChannel(), result);
-                    uH.removeUnit(key, hitRolls);
-                    if (hitRolls > 0 && key.getUnitType() == UnitType.Mech && player_.hasActiveBreakthrough("naazbt")) {
-                        BreakthroughCommandHelper.deactivateBreakthrough(player_, "naazbt");
+
+                    if (hitRolls > 0) {
+                        pendingRemovals
+                                .computeIfAbsent(uH, ignored -> new HashMap<>())
+                                .put(key, hitRolls);
+                        totalDamageDealt += hitRolls;
+                        if (key.unitType() == UnitType.Mech && player_.hasActiveBreakthrough("naazbt")) {
+                            BreakthroughCommandHelper.deactivateBreakthrough(player_, "naazbt");
+                        }
                     }
                 }
+            }
+
+            if ("bastionhero".equalsIgnoreCase(type) && totalDamageDealt >= 10) {
+                String message1 = "Moments before disaster in game " + game.getName() + ".";
+                DisasterWatchHelper.postTileInDisasterWatch(game, event, tile, 0, message1);
+            }
+
+            for (Map.Entry<UnitHolder, Map<UnitKey, Integer>> removalEntry : pendingRemovals.entrySet()) {
+                UnitHolder unitHolder = removalEntry.getKey();
+                for (Map.Entry<UnitKey, Integer> unitEntry :
+                        removalEntry.getValue().entrySet()) {
+                    unitHolder.removeUnit(unitEntry.getKey(), unitEntry.getValue());
+                }
+            }
+
+            if ("bastionhero".equalsIgnoreCase(type) && totalDamageDealt >= 10) {
+                String message2 = tile.getRepresentation() + " has been devastated by ENTITY 4X41A \"APOLLO\" ("
+                        + player.getRepresentation() + ") for " + totalDamageDealt + " damage.";
+                DisasterWatchHelper.postTileInDisasterWatch(game, event, tile, 0, message2);
             }
         }
         ButtonHelper.deleteMessage(event);
@@ -681,6 +706,7 @@ public final class ButtonHelperActionCards {
 
     public static List<Button> getCourageousOptions(Player player, Game game, boolean nekro, String type) {
         String finChecker = "FFCC_" + player.getFaction() + "_";
+        nekro |= game.isTwilightKart() && game.isTwilightsFallMode();
         List<Button> buttons = new ArrayList<>();
 
         List<String> allowedUnits = Stream.of(
@@ -1078,7 +1104,7 @@ public final class ButtonHelperActionCards {
             MessageHelper.sendMessageToChannel(
                     event.getMessageChannel(), "Could not find active system. You will need to roll using `/roll`.");
         }
-        game.setStoredValue("BlitzFaction", "");
+        game.removeStoredValue("BlitzFaction");
         ButtonHelper.deleteMessage(event);
     }
 
@@ -2188,6 +2214,16 @@ public final class ButtonHelperActionCards {
                     + " Feel free to ignore this message if you don't intend to play it any time soon.";
             List<Button> buttons = new ArrayList<>();
             buttons.add(Buttons.green("resolvePreassignment_Tartarus", "Pre-Play Tartarus"));
+            buttons.add(Buttons.red("deleteButtons", "Decline"));
+            MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), msg, buttons);
+        }
+        if (player.getPlayableActionCards().contains("tk-compose")) {
+            String msg = player.getRepresentation()
+                    + ", you have the option to pre-play _Compose_."
+                    + " Start-of-strategy-phase is an awkward timing window for async, so if you intend to play it, it's best to pre-play it now."
+                    + " Feel free to ignore this message if you don't intend to play it any time soon.";
+            List<Button> buttons = new ArrayList<>();
+            buttons.add(Buttons.green("resolvePreassignment_Compose", "Pre-Play Compose"));
             buttons.add(Buttons.red("deleteButtons", "Decline"));
             MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), msg, buttons);
         }

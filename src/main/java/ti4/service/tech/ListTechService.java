@@ -8,7 +8,11 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperCommanders;
 import ti4.helpers.ButtonHelperFactionSpecific;
@@ -17,10 +21,6 @@ import ti4.helpers.RegexHelper;
 import ti4.helpers.RelicHelper;
 import ti4.helpers.Units.UnitKey;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.model.StrategyCardModel;
 import ti4.model.TechnologyModel;
@@ -116,7 +116,6 @@ public class ListTechService {
             StrategyCardModel scModel =
                     game.getStrategyCardModelByName("technology").orElse(null);
             if (!used
-                    && !dwsBt
                     && scModel != null
                     && scModel.usesAutomationForSCID("pok7technology")
                     && !player.getFollowedSCs().contains(scModel.getInitiative())) {
@@ -192,10 +191,10 @@ public class ListTechService {
             buttons.addAll(getTechButtons(techs, player, payType));
         }
 
-        if (game.isComponentAction()) {
-            buttons.add(Buttons.gray("acquireATech", "Get Other Technology"));
-        } else if (dwsBt) {
+        if (dwsBt) {
             buttons.add(Buttons.gray("acquireATechWithDwsBt_second", "Get Other Technology"));
+        } else if (game.isComponentAction()) {
+            buttons.add(Buttons.gray("acquireATech", "Get Other Technology"));
         } else {
             buttons.add(Buttons.gray("acquireATechWithSC_second", "Get Other Technology"));
         }
@@ -234,7 +233,7 @@ public class ListTechService {
             for (UnitKey uk :
                     player.getNomboxTile().getSpaceUnitHolder().getUnits().keySet()) {
                 if (player.getNomboxTile().getSpaceUnitHolder().getUnitCount(uk) <= 0) continue;
-                if (unit.startsWith(uk.getUnitType().getValue())) return true;
+                if (unit.startsWith(uk.unitType().getValue())) return true;
             }
         }
         Set<TechnologyType> synergies = player.getSynergies();

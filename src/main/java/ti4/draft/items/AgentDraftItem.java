@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Map;
 import ti4.draft.DraftCategory;
 import ti4.draft.DraftItem;
+import ti4.game.Game;
 import ti4.helpers.PatternHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
 import ti4.model.DeckModel;
 import ti4.model.DraftErrataModel;
 import ti4.model.FactionModel;
@@ -110,7 +110,7 @@ public class AgentDraftItem extends DraftItem {
         Map<String, LeaderModel> allLeaders = Mapper.getLeaders();
         String[] results = PatternHelper.FIN_SEPERATOR_PATTERN.split(game.getStoredValue("bannedLeaders"));
         if (game.isTwilightsFallMode()) {
-            DeckModel deck = Mapper.getDeck("tf_genome");
+            DeckModel deck = Mapper.getDeck(game.getGenomeSpliceDeckID());
             for (String leader : deck.getNewShuffledDeck()) {
                 if (Arrays.asList(results).contains(leader)) {
                     continue;

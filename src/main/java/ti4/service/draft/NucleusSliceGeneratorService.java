@@ -13,14 +13,14 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Tile;
 import ti4.helpers.DistanceTool;
 import ti4.helpers.ListHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.MapTemplateModel;
 import ti4.model.MapTemplateModel.MapTemplateTile;
 import ti4.model.PlanetTypeModel.PlanetType;
@@ -500,7 +500,7 @@ public class NucleusSliceGeneratorService {
             }
         }
 
-        if (bestSpread == null || toAdd == null || toRemove == null) return false;
+        if (bestSpread == null) return false;
 
         // Search for the remove tile on board and in slices, then swap when found
         for (PlacedTile pt : placedTiles) {

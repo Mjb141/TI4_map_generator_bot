@@ -7,20 +7,20 @@ import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.RegexHelper;
 import ti4.helpers.Units.UnitKey;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.regex.RegexService;
 
@@ -120,7 +120,7 @@ public class GalvanizeService {
         if (add) uh.addGalvanizedUnit(unit, 1);
         if (!add) uh.removeGalvanizedUnit(unit, 1);
         refreshGalvanizeButtons(event, game, player, tile);
-        String descr = unit.getUnitType().humanReadableName() + grammar + uhName;
+        String descr = unit.unitType().humanReadableName() + grammar + uhName;
         String addRemove = add ? " galvanized " : " removed galvanize from ";
         String msg = player.getRepresentation() + addRemove + descr + " in tile "
                 + tile.getRepresentationForButtons(game, player);

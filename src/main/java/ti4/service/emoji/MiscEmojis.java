@@ -3,7 +3,7 @@ package ti4.service.emoji;
 import java.util.ArrayList;
 import java.util.List;
 import org.jetbrains.annotations.NotNull;
-import ti4.map.Game;
+import ti4.game.Game;
 
 public enum MiscEmojis implements TI4Emoji {
     // Tokens
@@ -81,6 +81,7 @@ public enum MiscEmojis implements TI4Emoji {
     NoAfters, //
     Winemaking,
     BortWindow,
+    BongoMahact,
     SpoonAbides,
     AsyncTI4Logo,
     TIGL,

@@ -8,9 +8,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.stream.Collectors;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.ManagedGame;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.ManagedGame;
 
 final class DashboardBadgeEngine {
 
@@ -239,7 +239,7 @@ final class DashboardBadgeEngine {
         }
         String tier = longHaulFinishes >= GALACTIC_ENDURANCE_LEGENDARY_GAMES
                 ? "LEGENDARY"
-                : longHaulFinishes >= GALACTIC_ENDURANCE_GOLD_GAMES ? "GOLD" : "SILVER";
+                : longHaulFinishes == GALACTIC_ENDURANCE_GOLD_GAMES ? "GOLD" : "SILVER";
         badges.add(new PlayerDashboardResponse.BadgeAward(
                 "galactic_endurance",
                 "Galactic Endurance",

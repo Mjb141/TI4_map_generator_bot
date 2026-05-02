@@ -4,12 +4,12 @@ import java.util.ArrayList;
 import java.util.List;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.ButtonHelper;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.model.AbilityModel;
 import ti4.service.emoji.CardEmojis;
@@ -63,7 +63,7 @@ public final class DeepgloomService {
     private static void yssarilbtToggleDebt(ButtonInteractionEvent event, Game game, Player player) {
         String type = " allowed ";
         if (!player.hasStoredValue("enableDeepgloomDebt")) {
-            player.addStoredValue("enableDeepgloomDebt", "y");
+            player.setStoredValue("enableDeepgloomDebt", "y");
             game.setDebtPoolIcon("Scheming", CardEmojis.ActionCard.emojiString());
             game.setDebtPoolIcon("Stall Tactics", CardEmojis.ActionCard.emojiString());
         } else {

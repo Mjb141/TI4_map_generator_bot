@@ -11,19 +11,21 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import org.apache.commons.lang3.function.Consumers;
 import software.amazon.awssdk.utils.StringUtils;
-import ti4.buttons.Buttons;
-import ti4.buttons.handlers.agenda.VoteButtonHandler;
+import ti4.contest.replay.service.CombatReplayService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.agenda.VoteButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.tyris.TyrisCommanderButtonHandler;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.DSHelperBreakthroughs;
 import ti4.helpers.thundersedge.TeHelperBreakthroughs;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.BreakthroughModel;
 import ti4.model.LeaderModel;
 import ti4.model.PromissoryNoteModel;
@@ -44,6 +46,7 @@ import ti4.service.turn.StartTurnService;
 import ti4.service.unit.AddUnitService;
 import ti4.service.unit.CheckUnitContainmentService;
 import ti4.service.unit.DestroyUnitService;
+import ti4.spring.context.SpringContext;
 
 @UtilityClass
 public class ComponentActionHelper {
@@ -275,6 +278,14 @@ public class ComponentActionHelper {
             Button lButton = Buttons.gray(finChecker + "mahactCommander", "Use Mahact Commander", FactionEmojis.Mahact);
             compButtons.add(lButton);
         }
+        if (p1.hasUnit("tk-heartofdominium") && p1.getTacticalCC() > 0) {
+            List<Tile> tiles = ButtonHelper.getTilesOfPlayersSpecificUnits(game, p1, UnitType.Flagship);
+            if (tiles.stream().anyMatch(t -> CommandCounterHelper.hasCC(p1, t))) {
+                Button lButton =
+                        Buttons.gray(finChecker + "mahactCommander", "Use Heart of Dominium", UnitEmojis.flagship);
+                compButtons.add(lButton);
+            }
+        }
 
         // Relics
         boolean enigmaticSeen = false;
@@ -380,6 +391,11 @@ public class ComponentActionHelper {
                     Buttons.green(finChecker + prefix + "ability_orbitalDrop", "Orbital Drop", FactionEmojis.Sol);
             compButtons.add(abilityButton);
         }
+        if (game.playerHasLeaderUnlockedOrAlliance(p1, "tyriscommander")
+                && (p1.getStrategicCC() > 0 || p1.hasRelicReady("emelpar"))) {
+            compButtons.add(Buttons.green(
+                    finChecker + prefix + "ability_tyrisCommanderMech", "Place Mech for 1 Token", FactionEmojis.tyris));
+        }
         if (p1.hasAbility("mutineers")
                 && !ButtonHelperAbilities.getTilesToMutineers(game, p1).isEmpty()
                 && (p1.getStrategicCC() > 0 || p1.hasRelicReady("emelpar"))) {
@@ -468,10 +484,6 @@ public class ComponentActionHelper {
         if (!IsPlayerElectedService.isPlayerElected(game, p1, "censure")
                 && !IsPlayerElectedService.isPlayerElected(game, p1, "absol_censure")) {
             List<Button> acButtons = ActionCardHelper.getActionPlayActionCardButtons(p1);
-            Button acButton = Buttons.gray(
-                    finChecker + prefix + "actionCards_",
-                    "Play an Action Card with Component Action (" + acButtons.size() + ")");
-            compButtons.add(acButton);
             compButtons.addAll(acButtons);
         }
 
@@ -537,6 +549,16 @@ public class ComponentActionHelper {
                 } else if (buttonID.contains("hero")) {
                     PlayHeroService.playHero(
                             event, game, p1, p1.getLeader(buttonID).orElse(null));
+                } else {
+                    LeaderModel leaderModel = Mapper.getLeader(buttonID);
+                    if (leaderModel != null) {
+                        SpringContext.getBean(CombatReplayService.class)
+                                .mirrorLeaderPlayed(
+                                        game,
+                                        p1,
+                                        leaderModel.getAlias(),
+                                        event.getChannel().getName());
+                    }
                 }
             }
             case "relic" -> resolveRelicComponentAction(game, p1, event, buttonID);
@@ -585,6 +607,8 @@ public class ComponentActionHelper {
                     List<Button> buttons = new ArrayList<>(
                             Helper.getPlanetPlaceUnitButtons(p1, game, "2gf", "placeOneNDone_skipbuildorbital"));
                     MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message, buttons);
+                } else if ("tyrisCommanderMech".equalsIgnoreCase(buttonID)) {
+                    TyrisCommanderButtonHandler.resolveMechAction(p1, game, event);
                 } else if ("mutineers".equalsIgnoreCase(buttonID)) {
                     String factionEmoji = p1.getFactionEmoji();
                     String successMessage = factionEmoji + " spent 1 strategy token using "
@@ -895,6 +919,9 @@ public class ComponentActionHelper {
                                     game.getPing() + ", this is the next commander on top of the mercenary pile.",
                                     led.getRepresentationEmbed());
                         }
+                    } else {
+                        MessageHelper.sendMessageToChannel(
+                                p1.getCorrectChannel(), "## There are no more commanders in the mercenary pile.");
                     }
                 } else {
                     MessageHelper.sendMessageToChannel(
@@ -1157,7 +1184,7 @@ public class ComponentActionHelper {
                 // handled above
             }
             case "bookoflatvinia" -> BookOfLatviniaService.purgeBookOfLatvinia(event, game, player);
-            case "thesilverflame" -> SilverFlameService.rollSilverFlame(event, game, player);
+            case "thesilverflame" -> SilverFlameService.rollSilverFlame(game, player);
             default ->
                 MessageHelper.sendMessageToChannel(
                         event.getChannel(), "This relic is not tied to any automation. Please resolve manually.");

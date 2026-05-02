@@ -13,17 +13,17 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.persistence.GameManager;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Constants;
 import ti4.helpers.TIGLHelper;
 import ti4.helpers.settingsFramework.menus.MiltySettings;
 import ti4.image.Mapper;
 import ti4.image.PositionMapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.persistence.GameManager;
 import ti4.message.MessageHelper;
 import ti4.model.FactionModel;
 import ti4.model.Source.ComponentSource;
@@ -167,9 +167,7 @@ public class MiltyService {
                     for (String player : draftManager.getPlayers()) {
                         Player p = game.getPlayer(player);
                         game.setStoredValue(p.getUserID() + "queuedMiltyPick", "");
-                        if (p != null
-                                && p != draftManager.getCurrentDraftPlayer(game)
-                                && p.getCardsInfoThread() != null) {
+                        if (p != draftManager.getCurrentDraftPlayer(game) && p.getCardsInfoThread() != null) {
                             MessageHelper.sendMessageToChannel(
                                     p.getCardsInfoThread(),
                                     p.getRepresentation() + " You can queue your choices with these buttons",
@@ -177,7 +175,8 @@ public class MiltyService {
                         }
                     }
                     game.setPhaseOfGame("miltydraft");
-                    GameManager.save(game, "Milty"); // TODO: We should be locking since we're saving
+                    // TODO: We should be locking since we're saving
+                    GameManager.save(game, "Milty");
                     if (game.isThundersEdge()) {
                         ThundersEdgeRulesService.alertTabletalkWithRulesAtStartOfDraft(game);
                     }

@@ -21,21 +21,21 @@ import net.dv8tion.jda.api.managers.channel.concrete.ThreadChannelManager;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
 import ti4.ResourceHelper;
+import ti4.discord.JdaService;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Constants;
 import ti4.helpers.Helper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.service.async.ReserveGameNumberService;
 import ti4.service.game.CreateGameService;
 import ti4.service.game.HomebrewService;
 import ti4.service.option.FOWOptionService.FOWOption;
-import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class CreateFoWGameService {
@@ -47,7 +47,7 @@ public class CreateFoWGameService {
             Permission.PIN_MESSAGES.getRawValue() | Permission.VIEW_CHANNEL.getRawValue();
 
     @ButtonHandler("createFoWGameChannels")
-    public static void createFoWGameChannels(ButtonInteractionEvent event) {
+    public static synchronized void createFoWGameChannels(ButtonInteractionEvent event) {
         MessageHelper.sendMessageToEventChannel(
                 event, event.getUser().getEffectiveName() + " pressed the [Create FoW Game] button.");
 

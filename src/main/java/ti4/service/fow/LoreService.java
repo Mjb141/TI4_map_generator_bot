@@ -24,11 +24,19 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.interactions.callbacks.IDeferrableCallback;
+import net.dv8tion.jda.api.interactions.components.ComponentInteraction;
 import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.discord.interactions.routing.ModalHandler;
+import ti4.discord.interactions.routing.SelectionHandler;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.Constants;
 import ti4.helpers.FoWHelper;
@@ -37,14 +45,8 @@ import ti4.helpers.SortHelper;
 import ti4.helpers.URLReaderHelper;
 import ti4.image.Mapper;
 import ti4.image.PositionMapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.listeners.annotations.ModalHandler;
-import ti4.listeners.annotations.SelectionHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.PlanetModel;
 
 public final class LoreService {
@@ -220,7 +222,7 @@ public final class LoreService {
                     .setComponents(buttons)
                     .queue(Consumers.nop(), BotLogger::catchRestError);
         } else {
-            ((ButtonInteractionEvent) event)
+            ((IDeferrableCallback) event)
                     .getHook()
                     .editOriginalComponents(buttons)
                     .queue(Consumers.nop(), BotLogger::catchRestError);
@@ -314,12 +316,9 @@ public final class LoreService {
                 .addComponents(List.of(ActionRow.of(menu)))
                 .queue(Consumers.nop(), BotLogger::catchRestError);
         if (event instanceof ButtonInteractionEvent) {
-            ((ButtonInteractionEvent) event).getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
+            ((ComponentInteraction) event).getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
         } else if (event instanceof StringSelectInteractionEvent) {
-            ((StringSelectInteractionEvent) event)
-                    .getMessage()
-                    .delete()
-                    .queue(Consumers.nop(), BotLogger::catchRestError);
+            ((ComponentInteraction) event).getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
         }
     }
 

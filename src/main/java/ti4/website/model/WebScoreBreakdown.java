@@ -10,12 +10,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.Data;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
 import ti4.helpers.Constants;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
 import ti4.model.PublicObjectiveModel;
 import ti4.service.info.ListPlayerInfoService;
 
@@ -774,22 +774,6 @@ public class WebScoreBreakdown {
     }
 
     // Helper class for public objective candidates with state information
-    private static class PublicObjectiveCandidate {
-        private final String key;
-        private final EntryType type;
-        private final int pointValue;
-        private final EntryState state;
-        private final int progress;
-        private final int threshold;
-
-        public PublicObjectiveCandidate(
-                String key, EntryType type, int pointValue, EntryState state, int progress, int threshold) {
-            this.key = key;
-            this.type = type;
-            this.pointValue = pointValue;
-            this.state = state;
-            this.progress = progress;
-            this.threshold = threshold;
-        }
-    }
+    private record PublicObjectiveCandidate(
+            String key, EntryType type, int pointValue, EntryState state, int progress, int threshold) {}
 }

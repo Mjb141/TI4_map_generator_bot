@@ -4,8 +4,8 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import ti4.helpers.Constants;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.service.statistics.StatisticsPipeline;
 
 @UtilityClass
@@ -35,6 +35,9 @@ public class GameStatisticsService {
                 case PHASE_TIMES -> RoundTimeStatisticsService.getRoundTimes(event);
                 case SOS_SCORED -> VictoryPointsScoredStatisticsService.listScoredVictoryPoints(event);
                 case FACTION_WIN_PERCENT -> FactionWinPercentStatisticsService.getFactionWinPercent(event);
+                case FACTION_CUSTODIAN_PERCENT ->
+                    FactionCustodianPercentStatisticsService.getFactionCustodianPercent(event);
+                case FACTION_STYX_PERCENT -> FactionStyxPercentStatisticsService.getFactionStyxPercent(event);
                 case FACTION_PERFORMANCE -> FactionPerformanceStatisticsService.showFactionPerformance(event);
                 case COLOUR_WINS -> MostWinningColorStatisticsService.showMostWinningColor(event);
                 case GAME_COUNT -> GameCountStatisticsService.getGameCount(event);

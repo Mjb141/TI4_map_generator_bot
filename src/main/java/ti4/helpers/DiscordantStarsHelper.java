@@ -9,17 +9,17 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
 import ti4.image.TileHelper;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.GenericCardModel;
 import ti4.model.PlanetModel;
 import ti4.model.TileModel;
@@ -238,8 +238,7 @@ public final class DiscordantStarsHelper {
                 || !player.hasOlradinPolicies()) return;
         PlanetModel planetModel = Mapper.getPlanet(planet);
         if (planetModel == null) return;
-        Planet unitHolder = ButtonHelper.getUnitHolderFromPlanetName(planet, game);
-        Planet planetHolder = unitHolder;
+        Planet planetHolder = ButtonHelper.getUnitHolderFromPlanetName(planet, game);
         if (planetHolder == null) return;
 
         boolean hasAbility = planetHolder.isLegendary();
@@ -361,8 +360,6 @@ public final class DiscordantStarsHelper {
                 "d122",
                 "d123"));
 
-        // if (includeAllTiles) tilesToPullFrom = TileHelper.getAllTiles().values().stream().filter(tile ->
-        // !tile.isAnomaly() && !tile.isHomeSystem() && !tile.isHyperlane()).map(TileModel::getId).toList();
         tilesToPullFrom.removeAll(
                 game.getTileMap().values().stream().map(Tile::getTileID).toList());
         if (!game.isDiscordantStarsMode()) {

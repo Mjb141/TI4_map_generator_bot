@@ -18,12 +18,12 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import ti4.executors.ExecutorServiceManager;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
+import ti4.game.persistence.ManagedGame;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
-import ti4.map.persistence.ManagedGame;
-import ti4.message.logging.BotLogger;
+import ti4.logging.BotLogger;
 import ti4.model.TechnologyModel;
 import ti4.spring.service.roundstats.GameRoundPlayerStats;
 import ti4.spring.service.roundstats.GameRoundPlayerStatsRepository;
@@ -271,7 +271,7 @@ class PlayerAggregatesService {
      */
     private void queueRecompute(String userId, List<String> completedGameIds, String completedGamesHash) {
         String taskName = "dashboard-player-aggregates:" + userId;
-        ExecutorServiceManager.runAsyncIfNotRunning(
+        ExecutorServiceManager.runAsyncWithLock(
                 taskName, () -> recomputeAndPersist(userId, completedGameIds, completedGamesHash));
     }
 

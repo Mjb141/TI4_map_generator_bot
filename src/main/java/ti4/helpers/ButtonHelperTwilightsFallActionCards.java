@@ -2,7 +2,6 @@ package ti4.helpers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -10,21 +9,19 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.StringUtils;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.DiceHelper.Die;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.TeHelperTechs;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
-import ti4.model.FactionModel;
 import ti4.model.LeaderModel;
-import ti4.model.Source.ComponentSource;
 import ti4.model.TechnologyModel;
 import ti4.model.UnitModel;
 import ti4.service.emoji.FactionEmojis;
@@ -362,7 +359,7 @@ public final class ButtonHelperTwilightsFallActionCards {
     }
 
     @ButtonHandler("coerceStep2")
-    public static void coerceStep2(Game game, Player player, ButtonInteractionEvent event, String buttonID) {
+    private static void coerceStep2(Game game, Player player, ButtonInteractionEvent event, String buttonID) {
         List<Button> buttons = new ArrayList<>();
         Player p2 = game.getPlayerFromColorOrFaction(buttonID.split("_")[1]);
         for (String ability : p2.getTechs()) {
@@ -530,7 +527,7 @@ public final class ButtonHelperTwilightsFallActionCards {
         }
     }
 
-    public static List<Button> getTransferSingularityButtons(Game game, Player target, Player recipient) {
+    private static List<Button> getTransferSingularityButtons(Game game, Player target, Player recipient) {
         List<Button> buttons = new ArrayList<>();
         for (String ability : target.getTechs()) {
             TechnologyModel tech = Mapper.getTech(ability);
@@ -783,36 +780,11 @@ public final class ButtonHelperTwilightsFallActionCards {
     @ButtonHandler("irradiateStep2")
     public static void irradiateStep2(Game game, Player player, ButtonInteractionEvent event, String buttonID) {
         List<MessageEmbed> embeds = new ArrayList<>();
-        List<String> allCards = new ArrayList<>();
+        List<String> unitSpliceDeck = game.getUnitSpliceDeck(false);
         String unitT = buttonID.split("_")[1];
-        Map<String, UnitModel> allUnits = Mapper.getUnits();
-        for (Map.Entry<String, UnitModel> entry : allUnits.entrySet()) {
-            UnitModel mod = entry.getValue();
-            if (mod.getFaction().isPresent() && mod.getSource() == ComponentSource.twilights_fall) {
-                FactionModel faction = Mapper.getFaction(mod.getFaction().get());
-                if (faction != null && faction.getSource() != ComponentSource.twilights_fall) {
-                    allCards.add(entry.getKey());
-                }
-            }
-        }
-        for (Player p : game.getRealPlayers()) {
-            for (String unit : p.getUnitsOwned()) {
-                allCards.remove(unit);
-            }
-        }
-        if (game.isVeiledHeartMode()) {
-            List<String> someCardList = new ArrayList<>(allCards);
-            for (String card : someCardList) {
-                for (Player p2 : game.getRealPlayers()) {
-                    if (game.getStoredValue("veiledCards" + p2.getFaction()).contains(card)) {
-                        allCards.remove(card);
-                    }
-                }
-            }
-        }
+
         String found = "nothing applicable";
-        Collections.shuffle(allCards);
-        for (String card : allCards) {
+        for (String card : unitSpliceDeck) {
             embeds.add(Mapper.getUnit(card).getRepresentationEmbed());
             if (Mapper.getUnit(card).getBaseType().equalsIgnoreCase(unitT)) {
                 UnitModel unitModel = Mapper.getUnit(card);
@@ -910,7 +882,6 @@ public final class ButtonHelperTwilightsFallActionCards {
     // timestop
 
     // linkship is ralnel FS ability
-    // 3 mech abilities of TF factions
 
     // Ral nel flagship
 

@@ -11,14 +11,15 @@ import lombok.Getter;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.jetbrains.annotations.NotNull;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.helpers.TIGLHelper;
 import ti4.helpers.settingsFramework.settings.BooleanSetting;
 import ti4.helpers.settingsFramework.settings.BooleanSettingWithCustomAction;
 import ti4.helpers.settingsFramework.settings.IntegerSetting;
 import ti4.helpers.settingsFramework.settings.ListSetting;
 import ti4.helpers.settingsFramework.settings.SettingInterface;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.MiscEmojis;
 import ti4.service.emoji.SourceEmojis;
@@ -61,10 +62,14 @@ public class GameSetupSettings extends SettingsMenu {
         stage2s = new IntegerSetting("Stage2s", "number of Stage 2 public objectives", 5, 1, 20, 1);
         secrets = new IntegerSetting("Secrets", "Max number of secret objectives", 3, 1, 10, 1);
         boolean defaultTigl = game.isCompetitiveTIGLGame();
+        boolean defaultTiglFractured = defaultTigl && TIGLHelper.isFracturedTIGLGame(game);
         tigl = new BooleanSettingWithCustomAction(
                 "TIGL", "TIGL Game", defaultTigl, (value) -> ensureTIGLConsistency(true, false));
         tiglFractured = new BooleanSettingWithCustomAction(
-                "TIGL Fractured", "TIGL Fractured Game", false, (value) -> ensureTIGLConsistency(false, true));
+                "TIGL Fractured",
+                "TIGL Fractured Game",
+                defaultTiglFractured,
+                (value) -> ensureTIGLConsistency(false, true));
         alliance = new BooleanSetting("Alliance", "Alliance Mode", false);
 
         // Initialize values & keys for gamePlayers

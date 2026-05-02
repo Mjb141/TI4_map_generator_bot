@@ -9,7 +9,11 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.AgendaHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.CommandCounterHelper;
@@ -17,10 +21,6 @@ import ti4.helpers.Constants;
 import ti4.helpers.PromissoryNoteHelper;
 import ti4.helpers.SpinRingsHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.PromissoryNoteModel;
 import ti4.model.TechnologyModel;
@@ -76,10 +76,11 @@ public class StatusCleanupService {
             sc.setValue(false);
         }
         closeRoundThreads(game);
-
-        Map<String, Player> players = game.getPlayers();
         if (ButtonHelper.isLawInPlay(game, "tf-censure")) {
             game.removeLaw("tf-censure");
+        }
+        if (ButtonHelper.isLawInPlay(game, "tk-endorse")) {
+            game.removeLaw("tk-endorse");
         }
 
         game.setCurrentACDrawStatusInfo("");
@@ -89,7 +90,7 @@ public class StatusCleanupService {
             }
         }
 
-        for (Player player : players.values()) {
+        for (Player player : game.getRealAndEliminatedAndDummyPlayers()) {
 
             player.setPassed(false);
             Set<Integer> SCs = player.getSCs();

@@ -9,13 +9,13 @@ import java.awt.image.BufferedImage;
 import java.util.List;
 import java.util.function.Function;
 import ti4.ResourceHelper;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.Helper;
 import ti4.helpers.Storage;
 import ti4.helpers.TransactionHelper;
 import ti4.image.MapGenerator.HorizontalAlign;
 import ti4.image.MapGenerator.VerticalAlign;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.ExploreEmojis;
 import ti4.service.emoji.LeaderEmojis;
@@ -121,7 +121,6 @@ public final class TransactionGenerator {
         return img;
     }
 
-    /** See also {@link TransactionHelper.buildTransactionOffer} */
     public static BufferedImage drawTradeOfferMeme(Game game, Player p1, Player p2) {
         BufferedImage meme = ImageHelper.read(ResourceHelper.getInstance().getExtraFile("trade_offer_base.png"));
         if (meme == null) return null;
@@ -216,11 +215,7 @@ public final class TransactionGenerator {
                         String txt = "Clear " + amountToTransact + " debt";
                         y += drawStringMultiLine(g2, txt, x, y + 40, 250, hAlign);
                     }
-                    case "shipOrders" -> {
-                        String txt = Mapper.getRelic(furtherDetail).getName();
-                        y += drawStringMultiLine(g2, txt, x, y + 40, 250, hAlign);
-                    }
-                    case "starCharts" -> {
+                    case "shipOrders", "starCharts" -> {
                         String txt = Mapper.getRelic(furtherDetail).getName();
                         y += drawStringMultiLine(g2, txt, x, y + 40, 250, hAlign);
                     }
@@ -234,6 +229,10 @@ public final class TransactionGenerator {
                     }
                     case "action" -> {
                         String txt = "In-game " + furtherDetail + " action";
+                        y += drawStringMultiLine(g2, txt, x, y + 40, 250, hAlign);
+                    }
+                    case "details" -> {
+                        String txt = furtherDetail.replace("fin777", " ");
                         y += drawStringMultiLine(g2, txt, x, y + 40, 250, hAlign);
                     }
                     default -> {

@@ -34,15 +34,15 @@ import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.entities.emoji.UnicodeEmoji;
 import ti4.ResourceHelper;
+import ti4.discord.JdaService;
+import ti4.game.Player;
 import ti4.helpers.Storage;
 import ti4.image.MapGenerator.HorizontalAlign;
 import ti4.image.MapGenerator.VerticalAlign;
-import ti4.map.Player;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.model.ColorModel;
 import ti4.service.emoji.TI4Emoji;
-import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class DrawingUtil {
@@ -97,7 +97,7 @@ public class DrawingUtil {
         int width = g.getFontMetrics().stringWidth(txt);
         if (horizontalAlignment != null) {
             switch (horizontalAlignment) {
-                case Center -> x -= width / 2.0;
+                case Center -> x -= (int) (width / 2.0);
                 case Right -> x -= width;
                 case Left -> {}
             }

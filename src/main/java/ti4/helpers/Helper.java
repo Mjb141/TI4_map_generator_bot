@@ -43,24 +43,24 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
 import org.jetbrains.annotations.NotNull;
 import ti4.ResourceHelper;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
+import ti4.game.persistence.GameManager;
+import ti4.game.persistence.ManagedGame;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.omega_phase.PriorityTrackHelper;
 import ti4.helpers.thundersedge.TeHelperUnits;
 import ti4.image.ImageHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
-import ti4.map.persistence.GameManager;
-import ti4.map.persistence.ManagedGame;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.ActionCardModel;
 import ti4.model.AgendaModel;
 import ti4.model.ColorModel;
@@ -1173,14 +1173,16 @@ public final class Helper {
             }
         }
         String outcome = game.getStoredValue("latestOutcomeVotedFor" + player.getFaction());
-        if (game.getCurrentAgendaInfo().contains("Secret")
-                && Mapper.getSecretObjectivesJustNames().get(outcome) != null) {
+        String formattedOutcome = AgendaHelper.getAgendaOutcomeName(game, outcome, true);
+        boolean isSecretOutcome = game.getCurrentAgendaInfo().contains("Secret")
+                && Mapper.getSecretObjectivesJustNames().containsKey(outcome);
+        if (isSecretOutcome) {
             msg.append("For a total of **")
                     .append(votes)
                     .append("** vote")
                     .append(votes == 1 ? "" : "s")
                     .append(" on the outcome \"_")
-                    .append(Mapper.getSecretObjectivesJustNames().get(outcome))
+                    .append(formattedOutcome)
                     .append("_\".");
         } else if (game.getCurrentAgendaInfo().contains("Elect Strategy Card")) {
             msg.append("For a total of **")
@@ -1188,7 +1190,7 @@ public final class Helper {
                     .append("** vote")
                     .append(votes == 1 ? "" : "s")
                     .append(" on the outcome \"**")
-                    .append(getSCName(Integer.parseInt(outcome), game))
+                    .append(formattedOutcome)
                     .append("**\".");
         } else {
             msg.append("For a total of **")
@@ -1196,7 +1198,7 @@ public final class Helper {
                     .append("** vote")
                     .append(votes == 1 ? "" : "s")
                     .append(" on the outcome \"")
-                    .append(StringUtils.capitalize(outcome))
+                    .append(formattedOutcome)
                     .append("\".");
         }
         if (justVoteTotal) {
@@ -1706,11 +1708,11 @@ public final class Helper {
         }
         for (UnitKey unit : uH.getUnits().keySet()) {
             if (unit.getColor().equalsIgnoreCase(player.getColor())) {
-                if (unit.getUnitType() == UnitType.TyrantsLament
+                if (unit.unitType() == UnitType.TyrantsLament
                         && player.getUnitsByAsyncID(unit.asyncID()).isEmpty()) {
                     player.addOwnedUnitByID("tyrantslament");
                 }
-                if (unit.getUnitType() == UnitType.PlenaryOrbital
+                if (unit.unitType() == UnitType.PlenaryOrbital
                         && player.getUnitsByAsyncID(unit.asyncID()).isEmpty()) {
                     player.addOwnedUnitByID("plenaryorbital");
                 }
@@ -2516,6 +2518,21 @@ public final class Helper {
                         unitButtons2);
             } else {
                 unitButtons.add(Buttons.gray("startYinSpinner", "Yin Spin 2 Duders", FactionEmojis.Yin));
+            }
+        }
+        if (player.hasUnit("tk-moyinschosen")) {
+            if ("sling".equalsIgnoreCase(warfareNOtherstuff)
+                    || "freelancers".equalsIgnoreCase(warfareNOtherstuff)
+                    || "chaosM".equalsIgnoreCase(warfareNOtherstuff)) {
+                List<Button> unitButtons2 = new ArrayList<>();
+                unitButtons2.add(Buttons.gray("startMoyinsChosen", "Use Moyin's Chosen", FactionEmojis.Yin));
+                MessageHelper.sendMessageToChannelWithButtons(
+                        player.getCorrectChannel(),
+                        player.getRepresentationUnfogged()
+                                + " if you made a destroyer, you may use this to place 1 fighter using the _Moyin's Chosen_ ability.",
+                        unitButtons2);
+            } else {
+                unitButtons.add(Buttons.gray("startMoyinsChosen", "Use Moyin's Chosen", FactionEmojis.Yin));
             }
         }
 

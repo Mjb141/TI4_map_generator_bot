@@ -18,17 +18,17 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.Helper;
 import ti4.helpers.StringHelper;
 import ti4.image.Mapper;
 import ti4.image.TileHelper;
-import ti4.map.Game;
-import ti4.map.Player;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.FactionModel;
 import ti4.model.Source.ComponentSource;
 import ti4.model.TileModel;
@@ -416,7 +416,7 @@ public class MiltyDraftManager {
                     MiltyDraftDisplayService.pingCurrentDraftPlayer(this, game, false);
                 }
             }
-            if (getQueueButtons(player, game).size() > 0
+            if (!getQueueButtons(player, game).isEmpty()
                     && getQueuedPick(player, game) == null
                     && player != nextDrafter) {
                 MessageHelper.sendMessageToChannel(
@@ -636,7 +636,7 @@ public class MiltyDraftManager {
         List<String> draftOrder = new ArrayList<>(players);
         draftOrder.addAll(playersReversed);
         draftOrder.addAll(players);
-        setDraftOrder(draftOrder);
+        this.draftOrder = draftOrder;
         setPlayers(players);
 
         // Picks
@@ -660,7 +660,7 @@ public class MiltyDraftManager {
 
         // Map Template
         String savedTemplate = bigTokenizer.nextToken();
-        setMapTemplate(savedTemplate);
+        mapTemplate = savedTemplate;
     }
 
     public void loadSlicesFromString(String str) throws Exception {

@@ -9,17 +9,17 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Space;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.RegexHelper;
 import ti4.helpers.Units;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitState;
 import ti4.helpers.Units.UnitType;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Space;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.service.regex.RegexService;
 
 @UtilityClass
@@ -242,10 +242,14 @@ public class TacticalActionDisplacementService {
 
         for (UnitKey unitKey : new HashSet<>(unitHolder.getUnitsByState().keySet())) {
             if (!canMoveUnit(player, allowedAllies, unitKey)) continue;
-            if (unitHolder instanceof Planet && !movableFromPlanets.contains(unitKey.getUnitType())) continue;
+            if (unitHolder instanceof Planet && !movableFromPlanets.contains(unitKey.unitType())) continue;
 
+            List<Integer> existing = movement.getOrDefault(unitKey, UnitState.emptyList());
             List<Integer> states = unitHolder.removeUnit(unitKey, unitHolder.getUnitCount(unitKey));
-            movement.put(unitKey, states);
+            for (int i = 0; i < existing.size(); i++) {
+                existing.set(i, existing.get(i) + states.get(i));
+            }
+            movement.put(unitKey, existing);
         }
         displaced.put(uhKey, movement);
     }
@@ -253,7 +257,7 @@ public class TacticalActionDisplacementService {
     private boolean canMoveUnit(Player player, Set<Player> allowedAllies, UnitKey unitKey) {
         if (player.unitBelongsToPlayer(unitKey)) return true;
 
-        UnitType unitType = unitKey.getUnitType();
+        UnitType unitType = unitKey.unitType();
         boolean eligibleType =
                 unitType == UnitType.Infantry || unitType == UnitType.Fighter || unitType == UnitType.Mech;
         if (!eligibleType) return false;

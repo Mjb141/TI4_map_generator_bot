@@ -17,8 +17,14 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.StringUtils;
-import ti4.buttons.Buttons;
-import ti4.commands.tokens.AddTokenCommand;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.commands.tokens.AddTokenCommand;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.AgendaHelper;
 import ti4.helpers.ButtonHelper;
@@ -38,12 +44,6 @@ import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.DSHelperBreakthroughs;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.AttachmentModel;
 import ti4.model.ExploreModel;
@@ -323,7 +323,7 @@ public class ExploreService {
         }
 
         if (kolleccbt) {
-            player.setBreakthroughExhausted("kolleccbt", kolleccbt);
+            player.setBreakthroughExhausted("kolleccbt", true);
             MessageHelper.sendMessageToChannel(
                     (MessageChannel) event.getChannel(),
                     player.getRepresentation()
@@ -607,7 +607,7 @@ public class ExploreService {
                                 int amt = planetUnitHolder.getUnitCount(key);
                                 var removed = planetUnitHolder.removeUnit(key, amt);
                                 if (Set.of(UnitType.Fighter, UnitType.Infantry, UnitType.Mech)
-                                        .contains(key.getUnitType())) {
+                                        .contains(key.unitType())) {
                                     spaceUnitHolder.addUnitsWithStates(key, removed);
                                     groundForces.addAll(Collections.nCopies(
                                             amt, key.unitEmoji().emojiString()));
@@ -701,7 +701,7 @@ public class ExploreService {
                                     && !game.didPlayerScoreThisAlready(player.getUserID(), "deep_space")) {
                                 DisasterWatchHelper.sendMessageInDisasterWatch(
                                         game,
-                                        player.getRepresentation() + " is attempting to _Expore Deep Space_ in "
+                                        player.getRepresentation() + " is attempting to _Explore Deep Space_ in "
                                                 + game.getName() + ". Alas, alack, they have discovered Mirage!");
                             } else if (game.getRevealedPublicObjectives().containsKey("vast_territories")
                                     && !game.didPlayerScoreThisAlready(player.getUserID(), "vast_territories")) {
@@ -815,15 +815,6 @@ public class ExploreService {
                                     + " mech here.\n-# Do not do this prior to exploring; it is an \"after\", while exploring is a \"when\".",
                             saarButton);
                 }
-
-                // if (IsPlayerElectedService.isPlayerElected(game, player, "minister_exploration")) {
-                //     String fac = player.getFactionEmoji();
-                //     message = fac + " gained 1 trade good from _Minister of Exploration_ " + player.gainTG(1)
-                //             + ". You do have this trade good prior to exploring.";
-                //     MessageHelper.sendMessageToEventChannel(event, message);
-                //     ButtonHelperAbilities.pillageCheck(player, game);
-                //     ButtonHelperAgents.resolveArtunoCheck(player, 1);
-                // }
 
                 String exploredMessage = player.getRepresentation() + " explored the planet " + ExploreEmojis.Cultural
                         + Helper.getPlanetRepresentationPlusEmojiPlusResourceInfluence(mirageID, game)

@@ -1,6 +1,6 @@
 package ti4.helpers;
 
-import static ti4.helpers.discord.DiscordHelper.isIgnorableError;
+import static ti4.helpers.discord.DiscordHelper.*;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -18,7 +18,14 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.function.Consumers;
 import software.amazon.awssdk.utils.StringUtils;
-import ti4.buttons.Buttons;
+import ti4.contest.replay.service.CombatReplayService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitState;
 import ti4.helpers.Units.UnitType;
@@ -27,15 +34,9 @@ import ti4.helpers.thundersedge.TeHelperUnits;
 import ti4.image.Mapper;
 import ti4.image.TileGenerator;
 import ti4.image.TileHelper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.StrategyCardModel;
 import ti4.model.UnitModel;
 import ti4.service.agenda.IsPlayerElectedService;
@@ -52,11 +53,14 @@ import ti4.service.planet.PlanetService;
 import ti4.service.tactical.TacticalActionService;
 import ti4.service.turn.StartTurnService;
 import ti4.service.unit.AddUnitService;
+import ti4.service.unit.CaptureUnitService;
 import ti4.service.unit.CheckUnitContainmentService;
 import ti4.service.unit.DestroyUnitService;
 import ti4.service.unit.MoveUnitService;
 import ti4.service.unit.ParsedUnit;
 import ti4.service.unit.RemoveUnitService;
+import ti4.service.unit.RemoveUnitService.RemovedUnit;
+import ti4.spring.context.SpringContext;
 
 public final class ButtonHelperModifyUnits {
 
@@ -461,6 +465,7 @@ public final class ButtonHelperModifyUnits {
                 hits > 0
                         && (player.hasUnit("naalu_flagship")
                                 || player.hasUnit("tf-morphwing")
+                                || player.hasUnit("tk-hierarch")
                                 || player.hasUnit("sigma_naalu_flagship_2")
                                 || player.hasUnit("belkosea_fighter")
                                 || player.hasUnit("belkosea_fighter2"))
@@ -808,7 +813,7 @@ public final class ButtonHelperModifyUnits {
                     if (!justSummarizing) {
                         var unit = new ParsedUnit(unitKey, min, unitHolder.getName());
                         RemoveUnitService.removeUnit(event, tile, game, unit);
-                        if (unit.getUnitKey().getUnitType() == UnitType.Infantry)
+                        if (unit.unitKey().unitType() == UnitType.Infantry)
                             ButtonHelper.resolveInfantryRemoval(player, min, tile);
                         msg.append("> Removed ")
                                 .append(min)
@@ -878,7 +883,7 @@ public final class ButtonHelperModifyUnits {
             Player player, Game game, String unit, boolean canBeLocked) {
         List<Button> buttons = new ArrayList<>();
         UnitType type = Mapper.getUnitKey(AliasHandler.resolveUnit(unit), player.getColorID())
-                .getUnitType();
+                .unitType();
         for (Tile tile : CheckUnitContainmentService.getTilesContainingPlayersUnits(game, player, type)) {
             for (UnitHolder uH : tile.getUnitHolders().values()) {
                 if (uH.getUnitCount(type, player.getColor()) > 0) {
@@ -915,14 +920,30 @@ public final class ButtonHelperModifyUnits {
             color = buttonID.split("_")[4];
         }
         if (color.equalsIgnoreCase(player.getColor())) {
-            RemoveUnitService.removeUnits(event, tile, game, color, "1 " + unit + " " + unitH.replace("space", ""));
+            List<RemovedUnit> units = RemoveUnitService.removeUnits(
+                    event, tile, game, color, "1 " + unit + " " + unitH.replace("space", ""));
+            if (Mapper.getUnitKey(AliasHandler.resolveUnit(unit), player.getColorID())
+                            .unitType()
+                    == UnitType.Fighter) {
+                for (Player p2 : game.getRealPlayersExcludingThis(player)) {
+                    if (p2.ownsUnit("tf-vortexer")) {
+                        for (String pos : FoWHelper.getAdjacentTiles(game, tile.getPosition(), p2, false, true)) {
+                            if (game.getTileByPosition(pos).getSpaceUnitHolder().getUnitCount(UnitType.Carrier, p2)
+                                    > 0) {
+                                CaptureUnitService.executeCapture(event, game, p2, units.getFirst());
+                            }
+                        }
+                    }
+                }
+            }
         } else {
             DestroyUnitService.destroyUnits(
                     event, tile, game, color, "1 " + unit + " " + unitH.replace("space", ""), false);
         }
+
         if (uH.getUnitCount(
                         Mapper.getUnitKey(AliasHandler.resolveUnit(unit), player.getColorID())
-                                .getUnitType(),
+                                .unitType(),
                         color)
                 < 1) {
             ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
@@ -938,7 +959,7 @@ public final class ButtonHelperModifyUnits {
             Player player, Game game, String unit, Player vuilraith) {
         List<Button> buttons = new ArrayList<>();
         UnitType type = Mapper.getUnitKey(AliasHandler.resolveUnit(unit), player.getColorID())
-                .getUnitType();
+                .unitType();
         for (Tile tile : CheckUnitContainmentService.getTilesContainingPlayersUnits(game, player, type)) {
             for (UnitHolder uH : tile.getUnitHolders().values()) {
                 if (uH.getUnitCount(type, player.getColor()) > 0) {
@@ -976,7 +997,7 @@ public final class ButtonHelperModifyUnits {
         AddUnitService.addUnits(event, player.getNomboxTile(), game, vuilraith.getColor(), "1 " + unit);
         if (uH.getUnitCount(
                         Mapper.getUnitKey(AliasHandler.resolveUnit(unit), player.getColorID())
-                                .getUnitType(),
+                                .unitType(),
                         player.getColor())
                 < 1) {
             ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
@@ -1016,7 +1037,7 @@ public final class ButtonHelperModifyUnits {
             }
         }
         if (pdsAmount > 0) {
-            if (player.hasUnit("mirveda_pds") || player.hasUnit("mirveda_pds2")) {
+            if (player.hasAnyUnit("mirveda_pds", "mirveda_pds2")) {
                 AddUnitService.addUnits(
                         event, game.getTileFromPlanet(uH.getName()), game, player.getColor(), pdsAmount + " pds");
             } else {
@@ -1326,11 +1347,11 @@ public final class ButtonHelperModifyUnits {
                 UnitKey unitKey = unitEntry.getKey();
                 if (!player.unitBelongsToPlayer(unitKey)) continue;
 
-                if (!allowedUnits.contains(unitKey.getUnitType())) {
+                if (!allowedUnits.contains(unitKey.unitType())) {
                     continue;
                 }
                 UnitModel unitModel = player.getUnitFromUnitKey(unitKey);
-                String prettyName = unitModel == null ? unitKey.getUnitType().humanReadableName() : unitModel.getName();
+                String prettyName = unitModel == null ? unitKey.unitType().humanReadableName() : unitModel.getName();
                 String unitName = unitKey.unitName();
                 Button validTile2 = Buttons.red(
                         finChecker + "resolveDevote_" + tile.getPosition() + "_" + unitName + "_" + devoteOrNo,
@@ -1738,7 +1759,7 @@ public final class ButtonHelperModifyUnits {
                         replace);
             }
         } else if ("pds".equalsIgnoreCase(unitLong)) {
-            if (player.ownsUnit("mirveda_pds") || player.ownsUnit("mirveda_pds2")) {
+            if (player.hasAnyUnit("mirveda_pds", "mirveda_pds2")) {
                 AddUnitService.addUnits(event, tile, game, player.getColor(), unitID);
                 successMessage = "Placed 1 space dock in the space area of the "
                         + Helper.getPlanetRepresentation(planetName, game) + " system.";
@@ -2296,6 +2317,11 @@ public final class ButtonHelperModifyUnits {
                 }
             }
         } else {
+            if (skipbuild.contains("component")) {
+                String message = "Use buttons to end turn or do another action.";
+                List<Button> systemButtons = StartTurnService.getStartOfTurnButtons(player, game, true, event);
+                MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message, systemButtons);
+            }
             if (orbitalDrop) {
                 List<Button> orbFollowUp = new ArrayList<>();
                 if (player.hasUnit("sol_mech")
@@ -2441,9 +2467,18 @@ public final class ButtonHelperModifyUnits {
             msg = opponent.getRepresentationUnfogged()
                     + ", your opponent used the Ascendancy to produce a hit against your non-fighter ships. Please assign it with buttons.";
             buttons = ButtonHelper.getButtonsForRemovingAllUnitsInSystem(opponent, game, tile, "combat");
+        } else if (cause.contains("assEsc")) {
+            MessageHelper.sendMessageToChannel(
+                    event.getMessageChannel(), player.getRepresentation(false, false) + " used _Assault Escort_.");
+            msg = opponent.getRepresentationUnfogged()
+                    + ", your opponent used _Assault Escort_, forcing you to destroy a non-fighter ship. Please assign it with buttons.";
+            buttons = ButtonHelper.getButtonsForRemovingAllUnitsInSystem(opponent, game, tile, "assaultcannoncombat");
         } else {
             MessageHelper.sendMessageToChannel(
                     event.getMessageChannel(), player.getRepresentation(false, false) + " used _Assault Cannon_.");
+            SpringContext.getBean(CombatReplayService.class)
+                    .mirrorAssaultCannonAssigned(
+                            game, player, event.getChannel().getName());
             msg = opponent.getRepresentationUnfogged()
                     + ", your opponent used _Assault Cannon_, forcing you to destroy a non-fighter ship. Please assign it with buttons.";
             buttons = ButtonHelper.getButtonsForRemovingAllUnitsInSystem(opponent, game, tile, "assaultcannoncombat");
@@ -2457,7 +2492,7 @@ public final class ButtonHelperModifyUnits {
         Tile tile = game.getTileByPosition(pos);
         List<Button> buttons = new ArrayList<>();
         for (UnitKey unit : tile.getUnitHolders().get("space").getUnits().keySet()) {
-            if (unit.getUnitType() == UnitType.Infantry || unit.getUnitType() == UnitType.Mech) {
+            if (unit.unitType() == UnitType.Infantry || unit.unitType() == UnitType.Mech) {
                 continue;
             }
             String unitName = unit.unitName();

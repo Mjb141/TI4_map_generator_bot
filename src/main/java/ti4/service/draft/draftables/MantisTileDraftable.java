@@ -16,16 +16,16 @@ import ti4.draft.DraftCategory;
 import ti4.draft.DraftItem;
 import ti4.draft.items.BlueTileDraftItem;
 import ti4.draft.items.RedTileDraftItem;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.settingsFramework.menus.DraftSystemSettings;
 import ti4.helpers.settingsFramework.menus.MantisTileDraftableSettings;
 import ti4.helpers.settingsFramework.menus.SettingsMenu;
 import ti4.helpers.settingsFramework.menus.SourceSettings;
 import ti4.image.Mapper;
 import ti4.image.TileHelper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.message.logging.BotLogger;
+import ti4.logging.BotLogger;
 import ti4.model.DraftErrataModel;
 import ti4.model.MapTemplateModel;
 import ti4.model.MapTemplateModel.MapTemplateTile;
@@ -216,7 +216,7 @@ public class MantisTileDraftable extends Draftable {
         int bluePicked = 0;
         int redPicked = 0;
         for (DraftChoice pick : playerPicks) {
-            DraftCategory category = getItemCategory(pick.getChoiceKey());
+            DraftCategory category = getItemCategory(pick.choiceKey());
             if (category == DraftCategory.BLUETILE) {
                 bluePicked++;
             } else if (category == DraftCategory.REDTILE) {
@@ -224,10 +224,10 @@ public class MantisTileDraftable extends Draftable {
             }
         }
 
-        DraftCategory choiceCategory = getItemCategory(choice.getChoiceKey());
+        DraftCategory choiceCategory = getItemCategory(choice.choiceKey());
         if (choiceCategory == null) {
-            return "Error: Could not find category for choice: " + choice.getUnformattedName() + " ("
-                    + choice.getChoiceKey() + ").";
+            return "Error: Could not find category for choice: " + choice.unformattedName() + " (" + choice.choiceKey()
+                    + ").";
         }
         if (choiceCategory == DraftCategory.BLUETILE) {
             if (bluePicked >= bpp) {
@@ -240,7 +240,7 @@ public class MantisTileDraftable extends Draftable {
                         + "You have already picked the maximum number of red tiles (" + rpp + ").";
             }
         } else {
-            return "Error: Choice " + choice.getUnformattedName() + " (" + choice.getChoiceKey()
+            return "Error: Choice " + choice.unformattedName() + " (" + choice.choiceKey()
                     + ") is not a blue or red tile.";
         }
 
@@ -269,7 +269,7 @@ public class MantisTileDraftable extends Draftable {
         } else {
             List<String> pickNames = new ArrayList<>();
             for (DraftChoice pick : picks) {
-                pickNames.add(pick.getFormattedName());
+                pickNames.add(pick.formattedName());
             }
             summary.append(String.join(", ", pickNames));
         }
@@ -455,14 +455,14 @@ public class MantisTileDraftable extends Draftable {
             int bluePicked = 0;
             int redPicked = 0;
             for (DraftChoice choice : mantisPicks) {
-                DraftCategory category = getItemCategory(choice.getChoiceKey());
+                DraftCategory category = getItemCategory(choice.choiceKey());
                 if (category == DraftCategory.BLUETILE) {
                     bluePicked++;
                 } else if (category == DraftCategory.REDTILE) {
                     redPicked++;
                 } else {
                     return "Player " + player.getRepresentation() + " has an invalid tile choice: "
-                            + choice.getUnformattedName() + " (" + choice.getChoiceKey() + ").";
+                            + choice.unformattedName() + " (" + choice.choiceKey() + ").";
                 }
             }
             if (bluePicked > bpp) {
@@ -584,14 +584,14 @@ public class MantisTileDraftable extends Draftable {
             int bluePicked = 0;
             int redPicked = 0;
             for (DraftChoice choice : mantisPicks) {
-                DraftCategory category = getItemCategory(choice.getChoiceKey());
+                DraftCategory category = getItemCategory(choice.choiceKey());
                 if (category == DraftCategory.BLUETILE) {
                     bluePicked++;
                 } else if (category == DraftCategory.REDTILE) {
                     redPicked++;
                 } else {
                     return "Player " + player.getRepresentation() + " has an invalid tile choice: "
-                            + choice.getUnformattedName() + " (" + choice.getChoiceKey() + ").";
+                            + choice.unformattedName() + " (" + choice.choiceKey() + ").";
                 }
             }
             if (bluePicked < bpp) {

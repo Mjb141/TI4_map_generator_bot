@@ -11,7 +11,11 @@ import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.tyris.PhantomEnergyHandler;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Player;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAbilities;
@@ -19,14 +23,10 @@ import ti4.helpers.ButtonHelperAgents;
 import ti4.helpers.FoWHelper;
 import ti4.helpers.RegexHelper;
 import ti4.helpers.thundersedge.TeHelperGeneral;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
 import ti4.message.GameMessageManager;
 import ti4.message.GameMessageType;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.service.fow.FowCommunicationThreadService;
 import ti4.service.game.EndPhaseService;
 import ti4.service.leader.CommanderUnlockCheckService;
@@ -69,19 +69,8 @@ public class EndTurnService {
     }
 
     private static void resetStoredValuesEndOfTurn(Game game, Player player) {
-        if (player.hasAbility("phantom_energy")
-                && !game.getStoredValue("phantomEnergy").isEmpty()) {
-            for (Tile tile : game.getTileMap().values()) {
-                if (tile.hasPlayerCC(player)) {
-                    for (String asyncID : tile.getSpaceUnitHolder()
-                            .getUnitAsyncIdsOnHolder(player.getColorID())
-                            .keySet()) {
-                        game.setStoredValue(
-                                "phantomEnergy",
-                                game.getStoredValue("phantomEnergy").replace(asyncID, ""));
-                    }
-                }
-            }
+        if (player.hasAbility("phantom_energy")) {
+            PhantomEnergyHandler.cleanupEndOfTurn(game, player);
         }
         game.removeStoredValue("fortuneSeekers");
         game.setStoredValue("lawsDisabled", "no");

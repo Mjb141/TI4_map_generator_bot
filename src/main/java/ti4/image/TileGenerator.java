@@ -30,7 +30,12 @@ import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import ti4.ResourceHelper;
-import ti4.commands.CommandHelper;
+import ti4.discord.interactions.commands.CommandHelper;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Constants;
 import ti4.helpers.DisplayType;
@@ -43,13 +48,8 @@ import ti4.helpers.RandomHelper;
 import ti4.helpers.Storage;
 import ti4.helpers.Units;
 import ti4.image.MapGenerator.HorizontalAlign;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.model.BorderAnomalyHolder;
 import ti4.model.BorderAnomalyModel;
 import ti4.model.MapTemplateModel;
@@ -171,8 +171,8 @@ public class TileGenerator {
                     List<Point> coordinates = unitEntry.getValue();
 
                     unitCoordinatesByFaction
-                            .computeIfAbsent(faction, k -> new HashMap<>())
-                            .computeIfAbsent(unitId, k -> new ArrayList<>())
+                            .computeIfAbsent(faction, _ -> new HashMap<>())
+                            .computeIfAbsent(unitId, _ -> new ArrayList<>())
                             .addAll(coordinates);
                 }
             }
@@ -817,7 +817,7 @@ public class TileGenerator {
                     y += (isSpiral ? 43 : 0);
                     String breachFile = ResourceHelper.getInstance().getTokenFile("token_breachActive.png");
 
-                    BufferedImage bufferedImage = ImageHelper.readScaled(breachFile, 2f);
+                    BufferedImage bufferedImage = ImageHelper.readScaled(breachFile, 2.0f);
                     if (bufferedImage != null) {
                         x += (345 - bufferedImage.getWidth()) / 2;
                         y += (300 - bufferedImage.getHeight()) / 2;
@@ -1648,7 +1648,7 @@ public class TileGenerator {
     }
 
     public static Point offsetTokenPositionForTokenPlanets(Point position, UnitHolder planet, Tile tile) {
-        if (position == null) return position;
+        if (position == null) return null;
         if (Constants.TOKEN_PLANETS.contains(planet.getName())) {
             Point centerPosition = planet.getHolderCenterPosition(tile);
             int radius = 55;

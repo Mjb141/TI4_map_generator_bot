@@ -15,17 +15,17 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.Constants;
 import ti4.helpers.twilightsfall.TwilightsFallInfoHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
 import ti4.message.componentsV2.MessageV2Builder;
 import ti4.message.componentsV2.MessageV2Editor;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.FactionModel;
 import ti4.service.draft.draftables.AndcatReferenceCardsDraftable;
 import ti4.service.draft.draftables.AndcatReferenceCardsDraftable.ReferenceCardPackage;
@@ -188,7 +188,7 @@ public class AndcatReferenceCardsMessageHelper {
             }
 
             ReferenceCardPackage refPackage =
-                    draftable.getPackageByChoiceKey(playerPicks.getFirst().getChoiceKey());
+                    draftable.getPackageByChoiceKey(playerPicks.getFirst().choiceKey());
             if (refPackage == null) {
                 messageBuilder.append(playerRepresentation).append(" has an invalid package pick.");
                 continue;
@@ -387,7 +387,7 @@ public class AndcatReferenceCardsMessageHelper {
                     continue;
                 }
                 ReferenceCardPackage otherRefPackage = draftable.getPackageByChoiceKey(
-                        otherPlayerPicks.getFirst().getChoiceKey());
+                        otherPlayerPicks.getFirst().choiceKey());
                 if (otherRefPackage == null) {
                     continue;
                 }
@@ -400,7 +400,7 @@ public class AndcatReferenceCardsMessageHelper {
         }
 
         String playerChoiceKey = draftManager.getPlayerPicks(playerUserId, draftable.getType()).stream()
-                .map(DraftChoice::getChoiceKey)
+                .map(DraftChoice::choiceKey)
                 .findFirst()
                 .orElse(null);
         if (playerChoiceKey == null) {
@@ -578,7 +578,7 @@ public class AndcatReferenceCardsMessageHelper {
             StringBuilder pickSummary = new StringBuilder(
                     playerName + "'s reference card picks: " + System.lineSeparator() + System.lineSeparator());
             ReferenceCardPackage refPackage =
-                    draftable.getPackageByChoiceKey(picks.getFirst().getChoiceKey());
+                    draftable.getPackageByChoiceKey(picks.getFirst().choiceKey());
             if (refPackage.homeSystemFaction() != null) {
                 FactionModel homeSystemFaction = Mapper.getFaction(refPackage.homeSystemFaction());
                 pickSummary.append(TwilightsFallInfoHelper.getFactionSetupInfo(homeSystemFaction, false, true, false));
@@ -617,7 +617,7 @@ public class AndcatReferenceCardsMessageHelper {
             }
 
             ReferenceCardPackage refPackage =
-                    draftable.getPackageByChoiceKey(picks.getFirst().getChoiceKey());
+                    draftable.getPackageByChoiceKey(picks.getFirst().choiceKey());
 
             if (refPackage.speakerOrderFaction() == null) {
                 unorderedPlayers.add(playerUserId);

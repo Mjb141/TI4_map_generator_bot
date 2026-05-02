@@ -15,7 +15,10 @@ import lombok.Getter;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.collections4.ListUtils;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.Constants;
 import ti4.helpers.MapTemplateHelper;
@@ -27,12 +30,9 @@ import ti4.helpers.settingsFramework.menus.SettingsMenu;
 import ti4.helpers.settingsFramework.menus.SourceSettings;
 import ti4.helpers.twilightsfall.TwilightsFallInfoHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.FactionModel;
 import ti4.model.Source.ComponentSource;
 import ti4.service.draft.AndcatReferenceCardsMessageHelper;
@@ -261,7 +261,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
                 List<DraftChoice> playerChoices = draftManager.getPlayerPicks(pId, TYPE);
                 if (playerChoices != null) {
                     for (DraftChoice choice : playerChoices) {
-                        ReferenceCardPackage refPackage = getPackageByChoiceKey(choice.getChoiceKey());
+                        ReferenceCardPackage refPackage = getPackageByChoiceKey(choice.choiceKey());
                         informPackages.remove(refPackage);
                     }
                 }
@@ -278,7 +278,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
                 List<DraftChoice> playerChoices = draftManager.getPlayerPicks(pId, TYPE);
                 if (playerChoices != null) {
                     for (DraftChoice choice : playerChoices) {
-                        ReferenceCardPackage refPackage = getPackageByChoiceKey(choice.getChoiceKey());
+                        ReferenceCardPackage refPackage = getPackageByChoiceKey(choice.choiceKey());
                         if (!informPackages.contains(refPackage)) {
                             informPackages.add(refPackage);
                         }
@@ -463,7 +463,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
                 continue;
             }
             DraftChoice pick = playerChoices.getFirst();
-            ReferenceCardPackage refPackage = getPackageByChoiceKey(pick.getChoiceKey());
+            ReferenceCardPackage refPackage = getPackageByChoiceKey(pick.choiceKey());
             Player player = draftManager.getGame().getPlayer(playerId);
 
             andcatMessageHelper.sendPackageButtons(draftManager, player, refPackage);
@@ -484,7 +484,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
             }
 
             DraftChoice pick = playerChoices.getFirst();
-            ReferenceCardPackage refPackage = getPackageByChoiceKey(pick.getChoiceKey());
+            ReferenceCardPackage refPackage = getPackageByChoiceKey(pick.choiceKey());
             if (refPackage.homeSystemFaction() == null) {
                 return "Player " + player.getRepresentation() + " has not assigned a home system faction.";
             }
@@ -511,7 +511,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
             return null;
         }
         DraftChoice pick = playerChoices.getFirst();
-        ReferenceCardPackage refPackage = getPackageByChoiceKey(pick.getChoiceKey());
+        ReferenceCardPackage refPackage = getPackageByChoiceKey(pick.choiceKey());
 
         // Determine speaker position and set home system location
         List<String> speakerOrder = getSpeakerOrder(draftManager);
@@ -598,7 +598,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
                         "No seat choice found for player " + player.getUserID() + " despite drafting for Seat.");
             }
             DraftChoice seatChoice = seatChoices.getFirst();
-            Integer seatNumber = SeatDraftable.getSeatNumberFromChoiceKey(seatChoice.getChoiceKey());
+            Integer seatNumber = SeatDraftable.getSeatNumberFromChoiceKey(seatChoice.choiceKey());
 
             // Get the HS tile from selected seat
             homeTilePosition = MapTemplateHelper.getPlayerHomeSystemLocation(seatNumber, game.getMapTemplateID());
@@ -646,7 +646,7 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
             if (pState.getPickCount(TYPE) == 0) {
                 return Collections.emptyList();
             }
-            String choiceKey = pState.getPicks(TYPE).getFirst().getChoiceKey();
+            String choiceKey = pState.getPicks(TYPE).getFirst().choiceKey();
             ReferenceCardPackage refPackage = getPackageByChoiceKey(choiceKey);
             if (refPackage.speakerOrderFaction() == null) {
                 return Collections.emptyList();
@@ -661,11 +661,11 @@ public class AndcatReferenceCardsDraftable extends SinglePickDraftable {
         // Sort player states by speaker order priority number
         playerStates.sort((p1, p2) -> {
             DraftChoice p1Choice = p1.getValue().getPicks(TYPE).getFirst();
-            ReferenceCardPackage p1Package = getPackageByChoiceKey(p1Choice.getChoiceKey());
+            ReferenceCardPackage p1Package = getPackageByChoiceKey(p1Choice.choiceKey());
             FactionModel p1SpeakerFaction = Mapper.getFaction(p1Package.speakerOrderFaction());
 
             DraftChoice p2Choice = p2.getValue().getPicks(TYPE).getFirst();
-            ReferenceCardPackage p2Package = getPackageByChoiceKey(p2Choice.getChoiceKey());
+            ReferenceCardPackage p2Package = getPackageByChoiceKey(p2Choice.choiceKey());
             FactionModel p2SpeakerFaction = Mapper.getFaction(p2Package.speakerOrderFaction());
 
             return Integer.compare(p1SpeakerFaction.getPriorityNumber(), p2SpeakerFaction.getPriorityNumber());

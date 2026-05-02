@@ -3,7 +3,6 @@ package ti4.helpers;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
@@ -17,30 +16,30 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
-import ti4.buttons.handlers.draft.FrankenButtonHandler;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.draft.FrankenButtonHandler;
+import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.draft.DraftBag;
 import ti4.draft.DraftCategory;
 import ti4.draft.DraftItem;
 import ti4.draft.InauguralSpliceFrankenDraft;
 import ti4.draft.items.HomeSystemDraftItem;
 import ti4.draft.items.TileDraftItem;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
 import ti4.message.componentsV2.MessageV2Builder;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.FactionModel;
 import ti4.model.LeaderModel;
 import ti4.model.MapTemplateModel;
-import ti4.model.Source.ComponentSource;
 import ti4.model.StrategyCardModel;
+import ti4.model.TechnologyModel;
 import ti4.model.TechnologyModel.TechnologyType;
 import ti4.model.UnitModel;
 import ti4.service.VeiledHeartService;
@@ -64,16 +63,15 @@ import ti4.service.unit.RemoveUnitService;
 
 public final class ButtonHelperTwilightsFall {
 
-    public static boolean checkForQueuedSplicePick(Player privatePlayer, Game game) {
-        Player player = privatePlayer;
-        String alreadyQueued = game.getStoredValue(player.getFaction() + "splicequeue");
+    private static boolean checkForQueuedSplicePick(Player privatePlayer, Game game) {
+        String alreadyQueued = game.getStoredValue(privatePlayer.getFaction() + "splicequeue");
         if (!alreadyQueued.isEmpty()) {
             String unpickedSpliceCard = "";
             for (String spliceCard : alreadyQueued.split("_")) {
-                if (!player.isNpc()) {
+                if (!privatePlayer.isNpc()) {
                     game.setStoredValue(
-                            player.getFaction() + "splicequeue",
-                            game.getStoredValue(player.getFaction() + "splicequeue")
+                            privatePlayer.getFaction() + "splicequeue",
+                            game.getStoredValue(privatePlayer.getFaction() + "splicequeue")
                                     .replace(spliceCard + "_", ""));
                 }
                 List<String> cards = getSpliceCards(game);
@@ -86,21 +84,21 @@ public final class ButtonHelperTwilightsFall {
             }
             if (unpickedSpliceCard.isEmpty()) {
                 MessageHelper.sendMessageToChannel(
-                        player.getCardsInfoThread(),
+                        privatePlayer.getCardsInfoThread(),
                         "Tried to pick your queued splice card, but they were all already taken.");
                 return false;
             } else {
                 MessageHelper.sendMessageToChannel(
                         privatePlayer.getCorrectChannel(),
                         privatePlayer.getRepresentation(false, false) + " had queued a splice pick.");
-                selectASpliceCard(game, player, "selectASpliceCard_" + unpickedSpliceCard, null);
+                selectASpliceCard(game, privatePlayer, "selectASpliceCard_" + unpickedSpliceCard, null);
                 return true;
             }
         }
         return false;
     }
 
-    public static List<Button> getQueueSplicePickButtons(Game game, Player player) {
+    private static List<Button> getQueueSplicePickButtons(Game game, Player player) {
         String type = game.getStoredValue("spliceType");
         List<String> cards = getSpliceCards(game);
         List<String> nCards = new ArrayList<>(cards);
@@ -114,7 +112,7 @@ public final class ButtonHelperTwilightsFall {
         return buttons;
     }
 
-    public static String getQueueSpliceMessage(Game game, Player player) {
+    private static String getQueueSpliceMessage(Game game, Player player) {
         int number = getParticipantsList(game).indexOf(player) + 1;
         String alreadyQueued = game.getStoredValue(player.getFaction() + "splicequeue");
         int numQueued = alreadyQueued.split("_").length;
@@ -176,10 +174,26 @@ public final class ButtonHelperTwilightsFall {
         return msg.toString();
     }
 
+    private static List<Player> getQueueEligibleParticipants(Game game, Player player) {
+        List<Player> participants = getParticipantsList(game);
+        if (!participants.isEmpty() && participants.contains(player)) {
+            return participants;
+        }
+
+        MessageHelper.sendMessageToChannel(
+                player.getCardsInfoThread(), "That splice queue prompt is no longer active.");
+        return null;
+    }
+
     @ButtonHandler("queueSplicePick_")
     public static void queueSplicePick(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
         event.getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
-        if (getParticipantsList(game).getFirst() == player) {
+        List<Player> participants = getQueueEligibleParticipants(game, player);
+        if (participants == null) {
+            game.setStoredValue(player.getFaction() + "splicequeue", "");
+            return;
+        }
+        if (participants.getFirst() == player) {
             MessageHelper.sendMessageToChannel(
                     player.getCardsInfoThread(),
                     "You are currently up to pick a splice card, and should just do that instead of queueing.");
@@ -203,7 +217,7 @@ public final class ButtonHelperTwilightsFall {
             }
         }
         alreadyQueued = game.getStoredValue(player.getFaction() + "splicequeue");
-        int number = getParticipantsList(game).indexOf(player) + 1;
+        int number = participants.indexOf(player) + 1;
         int numQueued = alreadyQueued.split("_").length;
         if (alreadyQueued.isEmpty()) {
             numQueued = 0;
@@ -226,6 +240,10 @@ public final class ButtonHelperTwilightsFall {
     public static void restartSpliceQueue(ButtonInteractionEvent event, Game game, Player player) {
         event.getMessage().delete().queue(Consumers.nop(), BotLogger::catchRestError);
         game.setStoredValue(player.getFaction() + "splicequeue", "");
+        List<Player> participants = getQueueEligibleParticipants(game, player);
+        if (participants == null) {
+            return;
+        }
         List<Button> buttons = getQueueSplicePickButtons(game, player);
         String msg = getQueueSpliceMessage(game, player);
         msg += "You can use these buttons to queue your splice pick.";
@@ -402,7 +420,12 @@ public final class ButtonHelperTwilightsFall {
     }
 
     // @ButtonHandler("initiateASplice_")
-    public static void initiateASplice(Game game, Player startPlayer, String buttonID, List<Player> participants) {
+    public static void initiateASplice(
+            GenericInteractionCreateEvent event,
+            Game game,
+            Player startPlayer,
+            String buttonID,
+            List<Player> participants) {
         String spliceType = buttonID;
         if (buttonID.contains("_")) {
             spliceType = buttonID.split("_")[1];
@@ -422,19 +445,7 @@ public final class ButtonHelperTwilightsFall {
             // Cleans up any dirty values left over from e.g. playing Engineer without finishing the splice
             game.removeStoredValue("engineerACSplice");
         }
-        for (Player player2 : game.getRealPlayers()) {
-            if (game.getStoredValue("Reverse Splice") != null
-                    && game.getStoredValue("Reverse Splice").contains(player2.getFaction())
-                    && player2.getPlayableActionCards().contains("tf-reverse")) {
-                ActionCardHelper.playAC(null, game, player2, "tf-reverse", game.getMainGameChannel());
-            }
-            if (game.getStoredValue("Manipulate Splice") != null
-                    && game.getStoredValue("Manipulate Splice").contains(player2.getFaction())
-                    && player2.getPlayableActionCards().contains("tf-manipulate")
-                    && !participants.contains(player2)) {
-                ActionCardHelper.playAC(null, game, player2, "tf-manipulate", game.getMainGameChannel());
-            }
-        }
+
         if (!game.getStoredValue("paid6ForSplice").isEmpty()) {
             participants.add(startPlayer);
             game.removeStoredValue("paid6ForSplice");
@@ -482,16 +493,37 @@ public final class ButtonHelperTwilightsFall {
                     getQueueSpliceMessage(game, player2),
                     getQueueSplicePickButtons(game, player2));
         }
+        for (Player player2 : game.getRealPlayers()) {
+            if (game.getStoredValue("Reverse Splice") != null
+                    && game.getStoredValue("Reverse Splice").contains(player2.getFaction())
+                    && player2.getPlayableActionCards().contains("tf-reverse")) {
+                ActionCardHelper.playAC(event, game, player2, "tf-reverse", game.getMainGameChannel());
+            }
+            if (game.getStoredValue("Manipulate Splice") != null
+                    && game.getStoredValue("Manipulate Splice").contains(player2.getFaction())
+                    && player2.getPlayableActionCards().contains("tf-manipulate")
+                    && !participants.contains(player2)) {
+                ActionCardHelper.playAC(event, game, player2, "tf-manipulate", game.getMainGameChannel());
+            }
+        }
     }
 
     public static void reverseSpliceOrder(Game game) {
-        List<Player> participants = new ArrayList<Player>();
+        List<Player> participants = new ArrayList<>();
         for (String faction : game.getStoredValue("savedParticipants").split("_")) {
             if (game.getPlayerFromColorOrFaction(faction) != null)
                 participants.add(game.getPlayerFromColorOrFaction(faction));
         }
+        if (participants.get(0) == participants.get(1)) {
+            Collections.rotate(participants, -2);
+        }
         Collections.reverse(participants);
-        Collections.rotate(participants, 1);
+        if (participants.getFirst() != participants.getLast()
+                || (participants.size() > 2
+                        && participants.get(2) != participants.get(0)
+                        && participants.get(1) == participants.get(0))) {
+            Collections.rotate(participants, 1);
+        }
         game.removeStoredValue("savedParticipants");
         for (Player p : participants) {
             if (game.getStoredValue("savedParticipants").isEmpty()) {
@@ -503,13 +535,12 @@ public final class ButtonHelperTwilightsFall {
         }
         MessageHelper.sendMessageToChannel(
                 game.getMainGameChannel(),
-                "The splice order has been reversed. The new order is: "
-                        + ButtonHelperTwilightsFall.getSpliceOrderString(participants));
+                "The splice order has been reversed. The new order is: " + getSpliceOrderString(participants));
 
         game.removeStoredValue("reverseSpliceOrder");
     }
 
-    public static String getSpliceOrderString(List<Player> participants) {
+    private static String getSpliceOrderString(List<Player> participants) {
         StringBuilder sb = new StringBuilder();
         int count = 1;
         for (Player p : participants) {
@@ -540,7 +571,7 @@ public final class ButtonHelperTwilightsFall {
         return players;
     }
 
-    public static void sendPlayerSpliceOptions(Game game, Player player) {
+    private static void sendPlayerSpliceOptions(Game game, Player player) {
         String type = game.getStoredValue("spliceType");
 
         List<String> cards = getSpliceCards(game);
@@ -644,7 +675,7 @@ public final class ButtonHelperTwilightsFall {
             }
             game.removeStoredValue("willParticipateInSplice");
         }
-        initiateASplice(game, player, spliceType, participants);
+        initiateASplice(event, game, player, spliceType, participants);
     }
 
     public static void triggerYellowUnits(Game game, Player player) {
@@ -782,7 +813,7 @@ public final class ButtonHelperTwilightsFall {
                         MessageHelper.sendMessageToChannelWithEmbed(
                                 player.getCorrectChannel(),
                                 player.getRepresentation() + " has spliced in the "
-                                        + Mapper.getLeader(cardID).getTFNameIfAble() + " genome.",
+                                        + Mapper.getLeader(cardID).getTFNameIfAble() + ".",
                                 Mapper.getLeader(cardID).getRepresentationEmbed(false, true, false, false, true));
                     }
                     if ("units".equalsIgnoreCase(type)) {
@@ -1012,16 +1043,8 @@ public final class ButtonHelperTwilightsFall {
             }
         }
 
-        List<String> allCards = Mapper.getDeck("tf_paradigm").getNewShuffledDeck();
-        List<String> alreadyDrawn =
-                List.of(game.getStoredValue("savedParadigms").split("_"));
-        for (String card : alreadyDrawn) {
-            if ("hacanhero".equalsIgnoreCase(card)) {
-                allCards.remove("sanctionhero");
-            }
-            allCards.remove(card);
-        }
-        String paradigm = allCards.removeFirst();
+        List<String> paradigms = game.getParadigmSpliceDeck(false);
+        String paradigm = paradigms.getFirst();
         drawSpecificParadigm(game, player, paradigm);
         if (!scPara && artifice) {
             if (game.getStoredValue("artificeParadigms").isEmpty()) {
@@ -1034,7 +1057,8 @@ public final class ButtonHelperTwilightsFall {
 
     public static boolean drawSpecificParadigm(
             Game game, Player player, String paradigm, boolean checkDeck, boolean checkDrawn) {
-        if (checkDeck && !Mapper.getDeck("tf_paradigm").getNewDeck().contains(paradigm)) {
+        if (checkDeck
+                && !Mapper.getDeck(game.getParadigmSpliceDeckID()).getNewDeck().contains(paradigm)) {
             return false;
         }
         if (checkDrawn
@@ -1045,7 +1069,7 @@ public final class ButtonHelperTwilightsFall {
         return true;
     }
 
-    public static void drawSpecificParadigm(Game game, Player player, String paradigm) {
+    private static void drawSpecificParadigm(Game game, Player player, String paradigm) {
         String valueToStore = game.getStoredValue("savedParadigms");
         if (!valueToStore.isEmpty()) {
             valueToStore += "_";
@@ -1070,14 +1094,14 @@ public final class ButtonHelperTwilightsFall {
         }
     }
 
-    public static List<Button> getSpliceButtons(Game game, String type, List<String> cards, Player player) {
+    private static List<Button> getSpliceButtons(Game game, String type, List<String> cards, Player player) {
         return getSpliceButtons(game, type, cards, player, "selectASpliceCard_");
     }
 
     public static List<Button> getSpliceButtons(
             Game game, String type, List<String> cards, Player player, String prefix) {
         List<Button> buttons = new ArrayList<>();
-        if (cards.size() > 0) {
+        if (!cards.isEmpty()) {
             if ("ability".equalsIgnoreCase(type)) {
                 for (String card : cards) {
                     String name = Mapper.getTech(card).getName();
@@ -1214,20 +1238,9 @@ public final class ButtonHelperTwilightsFall {
         TechnologyType type = Mapper.getTech(cardID).getFirstType();
 
         List<MessageEmbed> embeds = new ArrayList<>();
-        List<String> allCards = Mapper.getDeck("techs_tf").getNewShuffledDeck();
-        for (Player p : game.getRealPlayers()) {
-            for (String tech : p.getTechs()) {
-                allCards.remove(tech);
-            }
-        }
-        List<String> someCardList = new ArrayList<>(allCards);
-        for (String card : someCardList) {
-            if (game.getStoredValue("purgedAbilities").contains("_" + card)) {
-                allCards.remove(card);
-            }
-        }
+
+        List<String> allCards = game.getAbilitySpliceDeck(false);
         String found = "nothing applicable";
-        Collections.shuffle(allCards);
         for (String card : allCards) {
             embeds.add(Mapper.getTech(card).getRepresentationEmbed());
             if (Mapper.getTech(card).getFirstType() == type) {
@@ -1272,7 +1285,7 @@ public final class ButtonHelperTwilightsFall {
         }
         if ("units".equalsIgnoreCase(type)) {
             for (String unit : player.getUnitsOwned()) {
-                if (unit.contains("tf_")) {
+                if (unit.contains("tf_") || !unit.contains("tf-")) {
                     continue;
                 }
                 buttons.add(Buttons.red(
@@ -1467,85 +1480,49 @@ public final class ButtonHelperTwilightsFall {
         }
     }
 
+    public static void drawAbilityFromDeck(Game game, Player player) {
+        List<String> deck = game.getAbilitySpliceDeck(true);
+        if (deck.isEmpty()) {
+            String messageText = "There are no more cards in the ability deck.";
+            MessageHelper.sendMessageToChannel(player.getCorrectChannel(), messageText);
+            return;
+        }
+
+        String drawnCard = deck.getFirst();
+        player.addTech(drawnCard);
+        if (!game.isVeiledHeartMode()) {
+            TechnologyModel model = Mapper.getTech(drawnCard);
+            String msg = player.getRepresentation() + " has acquired the ability: " + model.getName();
+            MessageHelper.sendMessageToChannelWithEmbed(
+                    player.getCorrectChannel(), msg, model.getRepresentationEmbed());
+        } else {
+            game.setStoredValue(
+                    "veiledCards" + player.getFaction(),
+                    game.getStoredValue("veiledCards" + player.getFaction()) + drawnCard + "_");
+            MessageHelper.sendMessageToChannel(
+                    player.getCorrectChannel(),
+                    player.getRepresentationNoPing()
+                            + " has taken a secret card. They may put it into play with a button in their `#cards-info` thread.");
+        }
+    }
+
     public static List<String> getDeckForSplicing(Game game, String type, int size) {
         return getDeckForSplicing(game, type, size, false);
     }
 
-    public static List<String> getDeckForSplicing(Game game, String type, int size, boolean includeVeiledCards) {
+    private static List<String> getDeckForSplicing(Game game, String type, int size, boolean includeVeiledCards) {
         List<String> cards = new ArrayList<>();
         List<String> allCards = new ArrayList<>();
         if ("ability".equalsIgnoreCase(type)) {
-            allCards = Mapper.getDeck("techs_tf").getNewShuffledDeck();
-            for (Player p : game.getRealPlayersNNeutral()) {
-                for (String tech : p.getTechs()) {
-                    allCards.remove(tech);
-                }
-                for (String tech : p.getPurgedTechs()) {
-                    allCards.remove(tech);
-                }
-            }
-            List<String> someCardList = new ArrayList<>(allCards);
-            for (String card : someCardList) {
-                if (game.getStoredValue("purgedAbilities").contains("_" + card)) {
-                    allCards.remove(card);
-                }
-            }
+            allCards = game.getAbilitySpliceDeck(includeVeiledCards);
+        } else if ("genome".equalsIgnoreCase(type)) {
+            allCards = game.getGenomeSpliceDeck(includeVeiledCards);
+        } else if ("units".equalsIgnoreCase(type)) {
+            allCards = game.getUnitSpliceDeck(includeVeiledCards);
+        } else if ("paradigm".equalsIgnoreCase(type)) {
+            allCards = game.getParadigmSpliceDeck(includeVeiledCards);
         }
-        if ("genome".equalsIgnoreCase(type)) {
-            allCards = Mapper.getDeck("tf_genome").getNewShuffledDeck();
-            for (Player p : game.getRealPlayersNNeutral()) {
-                for (String tech : p.getLeaderIDs()) {
-                    allCards.remove(tech);
-                }
-            }
-        }
-        if ("units".equalsIgnoreCase(type)) {
-            Map<String, UnitModel> allUnits = Mapper.getUnits();
-            for (Map.Entry<String, UnitModel> entry : allUnits.entrySet()) {
-                UnitModel mod = entry.getValue();
-                if (mod.getFaction().isPresent() && mod.getSource() == ComponentSource.twilights_fall) {
-                    FactionModel faction = Mapper.getFaction(mod.getFaction().get());
-                    if (faction != null && faction.getSource() != ComponentSource.twilights_fall) {
-                        allCards.add(entry.getKey());
-                    }
-                }
-            }
-            for (Player p : game.getRealPlayersNNeutral()) {
-                for (String unit : p.getUnitsOwned()) {
-                    allCards.remove(unit);
-                }
-            }
-            Collections.shuffle(allCards);
-        }
-        if ("paradigm".equalsIgnoreCase(type)) {
-            allCards = Mapper.getDeck("tf_paradigm").getNewShuffledDeck();
-            List<String> alreadyDrawn =
-                    List.of(game.getStoredValue("savedParadigms").split("_"));
-            for (String card : alreadyDrawn) {
-                // savedParadigms includes veiled paradigms, which should only be removed if includeVeiledCards is false
-                boolean shouldRemove = true;
-                if (game.isVeiledHeartMode() & includeVeiledCards) {
-                    for (Player p2 : game.getRealPlayers()) {
-                        if (game.getStoredValue("veiledCards" + p2.getFaction()).contains(card)) {
-                            shouldRemove = false;
-                            break;
-                        }
-                    }
-                }
-                if (shouldRemove) {
-                    allCards.remove(card);
-                }
-            }
-        } else if (game.isVeiledHeartMode() && !includeVeiledCards) {
-            List<String> someCardList = new ArrayList<>(allCards);
-            for (String card : someCardList) {
-                for (Player p2 : game.getRealPlayers()) {
-                    if (game.getStoredValue("veiledCards" + p2.getFaction()).contains(card)) {
-                        allCards.remove(card);
-                    }
-                }
-            }
-        }
+
         for (int i = 0; i < size && !allCards.isEmpty(); i++) {
             cards.add(allCards.removeFirst());
         }
@@ -1553,7 +1530,7 @@ public final class ButtonHelperTwilightsFall {
         return cards;
     }
 
-    public static void setNewSpliceCards(Game game, String type, int size) {
+    private static void setNewSpliceCards(Game game, String type, int size) {
         List<String> cards = getDeckForSplicing(game, type, size);
         game.removeStoredValue("savedSpliceCards");
         for (String card : cards) {

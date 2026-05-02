@@ -8,8 +8,15 @@ import java.util.stream.Collectors;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import ti4.buttons.Buttons;
-import ti4.commands.tokens.AddTokenCommand;
+import ti4.discord.JdaService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.commands.tokens.AddTokenCommand;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.AgendaHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperFactionSpecific;
@@ -21,12 +28,6 @@ import ti4.helpers.RiftUnitsHelper;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.PromissoryNoteModel;
 import ti4.model.UnitModel;
@@ -37,7 +38,6 @@ import ti4.service.emoji.MiscEmojis;
 import ti4.service.emoji.SourceEmojis;
 import ti4.service.option.FOWOptionService.FOWOption;
 import ti4.service.relic.StellarConverterService;
-import ti4.spring.jda.JdaService;
 
 /*
  * For Eronous to run fow300
@@ -210,7 +210,7 @@ public final class RiftSetModeService {
                     player.getCorrectChannel(),
                     "## While trying to explore the planet, you find something dark and dangerous..." + "\n-# "
                             + getGMs(game));
-            StellarConverterService.secondHalfOfStellar(game, planetName, event);
+            StellarConverterService.secondHalfOfStellar(game, planetName, event, player);
             Tile tile = game.getTileFromPlanet(planetName);
             UnitHolder unitHolder = tile.getUnitHolderFromPlanet(planetName);
             unitHolder.removeAllTokens();
@@ -303,11 +303,11 @@ public final class RiftSetModeService {
                     UnitModel unitModel = player.getUnitFromUnitKey(unitEntry.getKey());
                     UnitKey key = unitEntry.getKey();
                     if (unitModel == null
-                            || key.getUnitType() == UnitType.Infantry
-                            || key.getUnitType() == UnitType.Mech
-                            || key.getUnitType() == UnitType.Fighter
-                            || key.getUnitType() == UnitType.Spacedock
-                            || key.getUnitType() == UnitType.Pds) {
+                            || key.unitType() == UnitType.Infantry
+                            || key.unitType() == UnitType.Mech
+                            || key.unitType() == UnitType.Fighter
+                            || key.unitType() == UnitType.Spacedock
+                            || key.unitType() == UnitType.Pds) {
                         continue;
                     }
 
@@ -335,7 +335,7 @@ public final class RiftSetModeService {
                         MessageHelper.sendMessageToChannel(player.getCorrectChannel(), "A " + ident + msg);
                     }
 
-                    totalTGsGained += sacrificedUnits * unitModel.getCost();
+                    totalTGsGained += (int) (sacrificedUnits * unitModel.getCost());
                 }
             }
         }

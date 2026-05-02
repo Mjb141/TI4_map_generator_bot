@@ -3,12 +3,12 @@ package ti4.service.milty;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.Data;
+import ti4.game.Game;
 import ti4.helpers.settingsFramework.menus.GameSettings;
 import ti4.helpers.settingsFramework.menus.MiltySettings;
 import ti4.helpers.settingsFramework.menus.PlayerFactionSettings;
 import ti4.helpers.settingsFramework.menus.SliceGenerationSettings;
 import ti4.helpers.settingsFramework.menus.SourceSettings;
-import ti4.map.Game;
 import ti4.model.MapTemplateModel;
 import ti4.model.Source;
 
@@ -51,7 +51,7 @@ public class MiltyDraftSpec {
 
         // Load Game Specifications
         GameSettings gameSettings = settings.getGameSettings();
-        specs.setTemplate(gameSettings.getMapTemplate().getValue());
+        specs.template = gameSettings.getMapTemplate().getValue();
 
         // Load Slice Generation Specifications
         SliceGenerationSettings sliceSettings = settings.getSliceSettings();
@@ -75,7 +75,7 @@ public class MiltyDraftSpec {
         PlayerFactionSettings pfSettings = settings.getPlayerSettings();
         specs.bannedFactions.addAll(pfSettings.getBanFactions().getKeys());
         specs.priorityFactions.addAll(pfSettings.getPriFactions().getKeys());
-        specs.setPlayerIDs(new ArrayList<>(pfSettings.getGamePlayers().getKeys()));
+        specs.playerIDs = new ArrayList<>(pfSettings.getGamePlayers().getKeys());
         if (pfSettings.getPresetDraftOrder().isVal()) {
             specs.playerDraftOrder = new ArrayList<>(game.getPlayers().keySet());
         }
@@ -83,8 +83,8 @@ public class MiltyDraftSpec {
 
         // Load Sources Specifications
         SourceSettings sources = settings.getSourceSettings();
-        specs.setTileSources(sources.getTileSources());
-        specs.setFactionSources(sources.getFactionSources());
+        specs.tileSources = sources.getTileSources();
+        specs.factionSources = sources.getFactionSources();
 
         if (sliceSettings.getParsedSlices() != null) {
             specs.presetSlices = sliceSettings.getParsedSlices();

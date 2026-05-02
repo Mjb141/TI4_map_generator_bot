@@ -46,17 +46,18 @@ import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
 import org.jetbrains.annotations.NotNull;
-import ti4.buttons.Buttons;
+import ti4.discord.JdaService;
+import ti4.discord.interactions.buttons.Buttons;
 import ti4.executors.CircuitBreaker;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
+import ti4.game.persistence.ManagedGame;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Helper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
-import ti4.map.persistence.ManagedGame;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.service.actioncard.SabotageService;
 import ti4.service.agenda.IsPlayerElectedService;
 import ti4.service.breakthrough.VisionariaSelectService;
@@ -64,13 +65,12 @@ import ti4.service.button.ReactionService;
 import ti4.service.emoji.ApplicationEmojiService;
 import ti4.service.game.GameNameService;
 import ti4.service.game.GameUndoNameService;
-import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class MessageHelper {
 
     public static Consumer<Message> pin() {
-        return msg -> msg.pin().queue(null, error -> {
+        return msg -> msg.pin().queue(Consumers.nop(), error -> {
             String err = getRestActionFailureMessage(msg.getChannel(), "Failed to pin message", null, error);
             BotLogger.error(err, error);
         });
@@ -157,7 +157,7 @@ public class MessageHelper {
         String gameName = GameNameService.getGameNameFromChannel(channel);
         if (GameManager.isValid(gameName)
                 && buttons instanceof ArrayList
-                && buttons.size() > 0
+                && !buttons.isEmpty()
                 && !(channel instanceof ThreadChannel)
                 && channel.getName().contains("actions")) {
             buttons = addUndoButtonToList(buttons, gameName);
@@ -203,9 +203,7 @@ public class MessageHelper {
 
     private static void addFactionReactToMessage(Game game, Player player, Message message) {
         Emoji reactionEmoji = Helper.getPlayerReactionEmoji(game, player, message);
-        if (reactionEmoji != null) {
-            message.addReaction(reactionEmoji).queue(null, error -> handleFailedReaction(game, player, message, error));
-        }
+        message.addReaction(reactionEmoji).queue(null, error -> handleFailedReaction(game, player, message, error));
         String messageId = message.getId();
         GameMessageManager.addReaction(game.getName(), player.getFaction(), messageId);
     }
@@ -617,11 +615,9 @@ public class MessageHelper {
         buttons = sanitizeButtons(buttons, channel);
 
         String gameName = GameNameService.getGameNameFromChannel(channel);
-        if (GameManager.isValid(gameName)) {
-            ManagedGame managedGame = GameManager.getManagedGame(gameName);
-            if (!managedGame.isInjectRules()) {
-                messageText = injectRules(messageText);
-            }
+        ManagedGame managedGame = GameManager.getManagedGame(gameName);
+        if (managedGame != null && !managedGame.isInjectRules()) {
+            messageText = injectRules(messageText);
         }
 
         String finalMessageText = messageText;
@@ -861,6 +857,71 @@ public class MessageHelper {
         ThreadChannel threadChannel = player.getCardsInfoThread();
 
         sendMessageToChannel(threadChannel, messageText);
+    }
+
+    public static void sendMessageToPlayerCardsInfoThreadAndPin(
+            @NotNull Game game, @NotNull Player player, @NotNull String storedValueKeyPrefix, String messageText) {
+        if (messageText == null || messageText.isEmpty()) {
+            return;
+        }
+
+        ThreadChannel threadChannel = player.getCardsInfoThread();
+        if (threadChannel == null) {
+            return;
+        }
+
+        splitAndSentWithAction(
+                messageText,
+                threadChannel,
+                msg -> rotatePinnedCardsInfoMessage(game, threadChannel, storedValueKeyPrefix, msg));
+    }
+
+    public static void sendMessageToPlayerCardsInfoThreadWithButtonsAndPin(
+            @NotNull Game game,
+            @NotNull Player player,
+            @NotNull String storedValueKeyPrefix,
+            String messageText,
+            List<Button> buttons) {
+        if (messageText == null || messageText.isEmpty()) {
+            return;
+        }
+
+        ThreadChannel threadChannel = player.getCardsInfoThread();
+        if (threadChannel == null) {
+            return;
+        }
+
+        splitAndSentWithAction(
+                messageText,
+                threadChannel,
+                msg -> rotatePinnedCardsInfoMessage(game, threadChannel, storedValueKeyPrefix, msg),
+                null,
+                buttons);
+    }
+
+    private static void rotatePinnedCardsInfoMessage(
+            @NotNull Game game,
+            @NotNull ThreadChannel threadChannel,
+            @NotNull String storedValueKeyPrefix,
+            @NotNull Message msg) {
+        String storedValueKey = storedValueKeyPrefix + "_" + threadChannel.getId();
+        String previousMessageId = game.getStoredValue(storedValueKey);
+
+        if (StringUtils.isNotBlank(previousMessageId) && !previousMessageId.equals(msg.getId())) {
+            threadChannel
+                    .retrieveMessageById(previousMessageId)
+                    .queue(
+                            previousMessage ->
+                                    previousMessage.unpin().queue(Consumers.nop(), BotLogger::catchRestError),
+                            BotLogger::catchRestError);
+        }
+
+        pinCardsInfoMessage(game, storedValueKey, msg);
+    }
+
+    private static void pinCardsInfoMessage(@NotNull Game game, @NotNull String storedValueKey, @NotNull Message msg) {
+        game.setStoredValue(storedValueKey, msg.getId());
+        msg.pin().queue(Consumers.nop(), BotLogger::catchRestError);
     }
 
     /**

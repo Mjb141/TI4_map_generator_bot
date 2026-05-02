@@ -8,19 +8,18 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import ti4.ResourceHelper;
-import ti4.buttons.Buttons;
-import ti4.commands.special.SetupNeutralPlayer;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.ButtonHelperTwilightsFall;
 import ti4.helpers.Constants;
 import ti4.helpers.FoWHelper;
 import ti4.helpers.Helper;
 import ti4.image.ImageHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
 import ti4.message.MessageHelper;
 import ti4.service.emoji.MiscEmojis;
 import ti4.service.image.FileUploadService;
@@ -68,17 +67,14 @@ public class RoundOneService {
             game.removeRelicFromGame("thesilverflame");
         }
         if (game.isThundersEdge() && !game.isTwilightsFallMode()) {
-            Player neutral = game.getPlayerFromColorOrFaction("neutral");
-            if (neutral == null) {
-                String color = SetupNeutralPlayer.pickNeutralColor(game);
-                game.setupNeutralPlayer(color);
-            }
+            game.setupNeutralPlayer();
             game.validateAndSetRelicDeck(Mapper.getDeck("relics_pok_te"));
             game.validateAndSetActionCardDeck(event, Mapper.getDeck(getTeActionCardDeckAlias(game)));
             game.setStrategyCardSet("te");
         }
         if (game.isTwilightsFallMode()) {
             ButtonHelperTwilightsFall.fixMahactColors(game, event);
+            game.setupNeutralPlayer();
             game.setupTwilightsFallMode(event);
         }
         if (game.isThundersEdge() || game.getStoredValue("useOldPok").isEmpty() || game.isTwilightsFallMode()) {

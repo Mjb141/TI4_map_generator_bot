@@ -5,11 +5,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.experimental.UtilityClass;
-import ti4.commands.statistics.GameStatisticsFilterer;
+import ti4.discord.interactions.commands.statistics.GameStatisticsFilterer;
+import ti4.game.Game;
+import ti4.game.persistence.GamesPage;
 import ti4.json.PersistenceManager;
-import ti4.map.Game;
-import ti4.map.persistence.GamesPage;
-import ti4.message.logging.BotLogger;
+import ti4.logging.BotLogger;
 import tools.jackson.core.type.TypeReference;
 
 @UtilityClass
@@ -29,7 +29,7 @@ public class WinningPathPersistenceService {
     private static void computeWinPath(Game game, Map<String, Map<String, Integer>> data) {
         game.getWinner().ifPresent(winner -> {
             String key = key(game.getRealAndEliminatedPlayers().size(), game.getVp());
-            Map<String, Integer> map = data.computeIfAbsent(key, k -> new HashMap<>());
+            Map<String, Integer> map = data.computeIfAbsent(key, _ -> new HashMap<>());
             String path = WinningPathHelper.buildWinningPath(game, winner);
             map.put(path, map.getOrDefault(path, 0) + 1);
         });

@@ -15,6 +15,10 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.utils.FileUpload;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.DisplayType;
 import ti4.helpers.Storage;
 import ti4.image.DrawingUtil;
@@ -24,11 +28,7 @@ import ti4.image.Mapper;
 import ti4.image.PositionMapper;
 import ti4.image.TileGenerator;
 import ti4.image.TileStep;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
-import ti4.message.logging.BotLogger;
+import ti4.logging.BotLogger;
 import ti4.model.FactionModel;
 import ti4.model.MapTemplateModel;
 import ti4.model.MapTemplateModel.MapTemplateTile;
@@ -153,7 +153,7 @@ public class NucleusImageGeneratorService {
                     return null;
                 }
                 DraftChoice seatChoice = seatChoices.getFirst();
-                Integer seatNum = SeatDraftable.getSeatNumberFromChoiceKey(seatChoice.getChoiceKey());
+                Integer seatNum = SeatDraftable.getSeatNumberFromChoiceKey(seatChoice.choiceKey());
                 return seatNum;
             };
         } else if (draftManager.getDraftable(SpeakerOrderDraftable.TYPE) != null) {
@@ -163,7 +163,7 @@ public class NucleusImageGeneratorService {
                     return null;
                 }
                 DraftChoice speakerChoice = speakerChoices.getFirst();
-                Integer seatNum = SpeakerOrderDraftable.getSpeakerOrderFromChoiceKey(speakerChoice.getChoiceKey());
+                Integer seatNum = SpeakerOrderDraftable.getSpeakerOrderFromChoiceKey(speakerChoice.choiceKey());
                 return seatNum;
             };
         }
@@ -205,7 +205,7 @@ public class NucleusImageGeneratorService {
             List<DraftChoice> speakerChoices = draftManager.getPlayerPicks(playerUserId, SpeakerOrderDraftable.TYPE);
             if (speakerChoices != null && !speakerChoices.isEmpty()) {
                 DraftChoice speakerChoice = speakerChoices.getFirst();
-                Integer speakerOrder = SpeakerOrderDraftable.getSpeakerOrderFromChoiceKey(speakerChoice.getChoiceKey());
+                Integer speakerOrder = SpeakerOrderDraftable.getSpeakerOrderFromChoiceKey(speakerChoice.choiceKey());
                 TI4Emoji speakerEmoji = MiltyDraftEmojis.getSpeakerPickEmoji(speakerOrder);
                 if (speakerEmoji != null) {
                     summaryEmojis.add(speakerEmoji);
@@ -221,9 +221,7 @@ public class NucleusImageGeneratorService {
                 FactionModel faction = FactionDraftable.getFactionByChoice(factionChoice);
                 if (faction.getAlias().contains("keleres")) {
                     TI4Emoji keleresEmoji = FactionEmojis.getFactionIcon(faction.getAlias());
-                    if (keleresEmoji != null) {
-                        summaryEmojis.add(keleresEmoji);
-                    }
+                    summaryEmojis.add(keleresEmoji);
                 }
             }
         }

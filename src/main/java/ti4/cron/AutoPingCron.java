@@ -9,17 +9,18 @@ import java.util.concurrent.TimeUnit;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
+import ti4.game.persistence.ManagedGame;
 import ti4.helpers.AgendaHelper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
-import ti4.map.persistence.ManagedGame;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.metadata.AutoPingMetadataManager;
 import ti4.settings.users.UserSettingsManager;
+import ti4.spring.service.deploy.ActiveLeaseService;
 
 @UtilityClass
 public class AutoPingCron {
@@ -90,6 +91,7 @@ public class AutoPingCron {
     }
 
     private static void autoPingGames() {
+        if (!ActiveLeaseService.shouldCurrentProcessRunScheduledWork()) return;
         BotLogger.logCron("Running AutoPingCron.");
 
         removeEndedGamesFromAutoPingMetadata();
@@ -292,8 +294,7 @@ public class AutoPingCron {
                     if (game.isFowMode()) {
                         MessageHelper.sendMessageToChannel(
                                 player.getCorrectChannel(),
-                                player.getRepresentationUnfogged()
-                                        + ", please draw action cards and allocate command tokens.");
+                                player.getRepresentationUnfogged() + ", please allocate command tokens.");
                     }
                     msg.append(player.getRepresentation()).append(", ");
                 } else if (game.isFowMode()
@@ -306,8 +307,7 @@ public class AutoPingCron {
                 }
             }
             if (!game.isFowMode() && !msg.isEmpty()) {
-                MessageHelper.sendMessageToChannel(
-                        game.getActionsChannel(), msg + "please draw action cards and allocate command tokens.\n");
+                MessageHelper.sendMessageToChannel(game.getActionsChannel(), msg + "please allocate command tokens.\n");
             }
             AutoPingMetadataManager.addPing(game.getName());
         }

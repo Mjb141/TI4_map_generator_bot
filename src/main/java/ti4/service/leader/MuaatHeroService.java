@@ -2,16 +2,16 @@ package ti4.service.leader;
 
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.Constants;
 import ti4.helpers.DisasterWatchHelper;
 import ti4.helpers.Helper;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.service.map.TokenPlanetService;
 import ti4.service.unit.DestroyUnitService;
@@ -36,8 +36,7 @@ public class MuaatHeroService {
         String frontierFilename = Mapper.getTokenID(Constants.FRONTIER);
         boolean frontier = space.getTokenList().contains(frontierFilename);
         Tile novaTile = new Tile(AliasHandler.resolveTile("81"), tile.getPosition(), space);
-        if (muaat.getPlanets().contains("avernus")
-                && tile.getUnitHolders().keySet().contains("avernus")) {
+        if (muaat.getPlanets().contains("avernus") && tile.getUnitHolders().containsKey("avernus")) {
             TokenPlanetService.moveTokenPlanet(game, muaat, novaTile, "avernus");
         }
         game.removeTile(tile.getPosition());

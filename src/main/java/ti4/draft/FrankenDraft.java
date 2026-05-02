@@ -24,9 +24,9 @@ import ti4.draft.items.StartingFleetDraftItem;
 import ti4.draft.items.StartingTechDraftItem;
 import ti4.draft.items.TechDraftItem;
 import ti4.draft.items.UnitDraftItem;
+import ti4.game.Game;
 import ti4.helpers.PatternHelper;
 import ti4.image.Mapper;
-import ti4.map.Game;
 import ti4.message.MessageHelper;
 import ti4.model.FactionModel;
 import ti4.service.milty.MiltyDraftHelper;
@@ -176,7 +176,7 @@ public class FrankenDraft extends BagDraft {
         var stTechs = StartingTechDraftItem.buildAllDraftableItems(allDraftableFactions, game);
         allDraftableItems.put(DraftCategory.STARTINGTECH, stTechs);
 
-        var units = UnitDraftItem.buildAllDraftableItems();
+        var units = UnitDraftItem.buildAllDraftableItems(game);
         allDraftableItems.put(DraftCategory.UNIT, units);
 
         var kings = MahactKingDraftItem.buildAllDraftableItems();

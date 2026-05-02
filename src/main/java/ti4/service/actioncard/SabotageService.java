@@ -6,12 +6,12 @@ import java.util.Set;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.entities.MessageReaction;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.Units;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.message.GameMessageManager;
 import ti4.message.GameMessageType;
 import ti4.model.LeaderModel;
@@ -157,6 +157,15 @@ public class SabotageService {
             }
             return playerName + " has " + FactionEmojis.Yssaril
                     + " _Transparasteel Plating_, and all other players have passed.";
+        }
+        if (player.hasTech("tf-crafty")
+                && game.getActivePlayerID() != null
+                && game.getActivePlayerID().equalsIgnoreCase(player.getUserID())) {
+            for (Player p2 : game.getRealPlayers()) {
+                if (p2 == player) continue;
+                if (!p2.isPassed()) return null;
+            }
+            return playerName + " has " + FactionEmojis.Yssaril + " _Crafty_, and all other players have passed.";
         }
         if (player.hasTech("baarvag")) {
             return playerName + " has _Unyielding Will_ and, thus their action cards cannot be cancelled.";

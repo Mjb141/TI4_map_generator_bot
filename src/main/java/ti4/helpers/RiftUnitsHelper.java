@@ -10,19 +10,19 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.DiceHelper.Die;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.UnitModel;
 import ti4.service.fow.RiftSetModeService;
 import ti4.service.unit.AddUnitService;
@@ -105,13 +105,13 @@ public final class RiftUnitsHelper {
                 if (unitModel == null) continue;
 
                 UnitKey key = unitEntry.getKey();
-                if (key.getUnitType() == UnitType.Infantry
-                        || key.getUnitType() == UnitType.Mech
-                        || (!player.hasFF2Tech() && key.getUnitType() == UnitType.Fighter)
+                if (key.unitType() == UnitType.Infantry
+                        || key.unitType() == UnitType.Mech
+                        || (!player.hasFF2Tech() && key.unitType() == UnitType.Fighter)
                         || (cabal != null
-                                && (key.getUnitType() == UnitType.Fighter
-                                        || key.getUnitType() == UnitType.Spacedock
-                                        || key.getUnitType() == UnitType.Pds))) {
+                                && (key.unitType() == UnitType.Fighter
+                                        || key.unitType() == UnitType.Spacedock
+                                        || key.unitType() == UnitType.Pds))) {
                     continue;
                 }
 
@@ -161,10 +161,10 @@ public final class RiftUnitsHelper {
                 if (unitModel == null) continue;
 
                 UnitKey key = unitEntry.getKey();
-                if (key.getUnitType() == UnitType.Infantry
-                        || key.getUnitType() == UnitType.Mech
-                        || key.getUnitType() == UnitType.Spacedock
-                        || (!player.hasFF2Tech() && key.getUnitType() == UnitType.Fighter)) {
+                if (key.unitType() == UnitType.Infantry
+                        || key.unitType() == UnitType.Mech
+                        || key.unitType() == UnitType.Spacedock
+                        || (!player.hasFF2Tech() && key.unitType() == UnitType.Fighter)) {
                     continue;
                 }
 
@@ -323,7 +323,7 @@ public final class RiftUnitsHelper {
                     UnitModel unitModel = player.getUnitFromUnitKey(key);
                     if (unitModel == null) continue;
 
-                    UnitType unitType = key.getUnitType();
+                    UnitType unitType = key.unitType();
                     if ((!game.playerHasLeaderUnlockedOrAlliance(player, "sardakkcommander")
                                     && (unitType == UnitType.Infantry || unitType == UnitType.Mech))
                             || (!player.hasFF2Tech() && unitType == UnitType.Fighter)) {
@@ -380,7 +380,7 @@ public final class RiftUnitsHelper {
                     UnitModel unitModel = player.getUnitFromUnitKey(key);
                     if (unitModel == null) continue;
 
-                    UnitType unitType = key.getUnitType();
+                    UnitType unitType = key.unitType();
                     if (((unitType == UnitType.Infantry || unitType == UnitType.Mech))
                             || (!player.hasFF2Tech() && unitType == UnitType.Fighter)) {
                         continue;

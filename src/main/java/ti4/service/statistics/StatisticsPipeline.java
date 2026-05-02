@@ -9,14 +9,15 @@ import org.apache.commons.lang3.function.Consumers;
 import ti4.executors.CircuitBreaker;
 import ti4.executors.ExecutionHistoryManager;
 import ti4.helpers.TimedRunnable;
-import ti4.message.logging.BotLogger;
+import ti4.logging.BotLogger;
 
 @UtilityClass
 public class StatisticsPipeline {
 
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 20;
     private static final int EXECUTION_TIME_SECONDS_WARNING_THRESHOLD = 10;
-    private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor();
+    private static final ExecutorService EXECUTOR_SERVICE = Executors.newSingleThreadExecutor(
+            Thread.ofPlatform().name("ti4-statistics-gatherer-", 0).factory());
 
     public static void queue(SlashCommandInteractionEvent event, Runnable runnable) {
         if (CircuitBreaker.checkIsOpenAndPostWarningIfTrue(event.getMessageChannel())) {

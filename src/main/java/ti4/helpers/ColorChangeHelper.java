@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.UnitHolder;
 import ti4.helpers.Units.UnitKey;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.UnitHolder;
 import ti4.model.ColorModel;
 import ti4.model.PromissoryNoteModel;
 
@@ -121,8 +121,8 @@ public class ColorChangeHelper {
         String newColorSuffix = "_" + newColorID + ".";
 
         for (UnitKey unitKey : unitHolder.getUnitKeys()) {
-            if (unitKey.getColorID().equals(oldColorID)) {
-                UnitKey replacedKey = Units.getUnitKey(unitKey.getUnitType(), newColorID);
+            if (unitKey.colorID().equals(oldColorID)) {
+                UnitKey replacedKey = Units.getUnitKey(unitKey.unitType(), newColorID);
                 List<Integer> states = unitHolder.removeUnit(unitKey, unitHolder.getUnitCount(unitKey));
                 unitHolder.addUnitsWithStates(replacedKey, states);
             }

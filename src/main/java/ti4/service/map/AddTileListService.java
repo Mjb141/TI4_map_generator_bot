@@ -14,19 +14,19 @@ import net.dv8tion.jda.api.events.interaction.ModalInteractionEvent;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.modals.Modal;
 import ti4.ResourceHelper;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ModalHandler;
+import ti4.game.Game;
+import ti4.game.Tile;
 import ti4.helpers.AliasHandler;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Constants;
 import ti4.helpers.DisplayType;
 import ti4.image.Mapper;
 import ti4.image.TileHelper;
-import ti4.listeners.annotations.ModalHandler;
-import ti4.map.Game;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.service.ShowGameService;
 import ti4.service.emoji.ExploreEmojis;
 import ti4.service.explore.AddFrontierTokensService;
@@ -98,8 +98,17 @@ public class AddTileListService {
     public static void finishSetup(Game game, @Nullable GenericInteractionCreateEvent event) {
         try {
             Tile tile;
-            tile = new Tile(AliasHandler.resolveTile(Constants.MALLICE), "TL");
-            game.setTile(tile);
+            if (game.getTileByPosition("tl") == null) {
+                game.setTile(new Tile("82a", "tl"));
+            } else {
+                if (game.getTileByPosition("tr") == null) {
+                    game.setTile(new Tile("82a", "tr"));
+                } else {
+                    if (game.getTileByPosition("bl") == null) {
+                        game.setTile(new Tile("82a", "bl"));
+                    }
+                }
+            }
             if (game.getTileByPosition("000") == null) {
                 tile = new Tile(AliasHandler.resolveTile(Constants.MR), "000");
                 AddTileService.addCustodianToken(tile, game);

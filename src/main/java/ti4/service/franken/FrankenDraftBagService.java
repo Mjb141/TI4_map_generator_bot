@@ -24,7 +24,7 @@ import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.requests.RestAction;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
 import ti4.draft.BagDraft;
 import ti4.draft.DraftBag;
 import ti4.draft.DraftCategory;
@@ -33,17 +33,17 @@ import ti4.draft.FrankenDraft;
 import ti4.draft.InauguralSpliceFrankenDraft;
 import ti4.draft.items.AgentDraftItem;
 import ti4.draft.items.HeroDraftItem;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.discord.ContainerHelper;
 import ti4.image.Mapper;
 import ti4.image.PositionMapper;
-import ti4.map.Game;
-import ti4.map.Player;
+import ti4.logging.BotLogger;
 import ti4.message.GameMessageManager;
 import ti4.message.GameMessageManager.GameMessage;
 import ti4.message.GameMessageType;
 import ti4.message.MessageHelper;
 import ti4.message.componentsV2.MessageV2Builder;
-import ti4.message.logging.BotLogger;
 import ti4.service.draft.PlayerSetupService;
 import ti4.service.draft.PlayerSetupState;
 import ti4.service.fow.GMService;
@@ -109,7 +109,7 @@ public class FrankenDraftBagService {
 
         List<Color> accents = getAccents();
         for (Player player : game.getPlayers().values()) {
-            player.addStoredValue("frankenBuilt", "n");
+            player.setStoredValue("frankenBuilt", "n");
             for (DraftCategory category : componentCategories) {
                 MessageV2Builder builder = new MessageV2Builder(player.getCardsInfoThread());
                 Container c = postDraftCategoryContainer(player, category);
@@ -304,8 +304,6 @@ public class FrankenDraftBagService {
         List<Button> buttons = new ArrayList<>();
         boolean draftable = DraftItem.isDraftable(player, cat);
         if (!items.isEmpty()) {
-            // String descrButtonID = ACTION_NAME + "showDescr_" + cat.ordinal();
-            // buttons.add(Buttons.blue(descrButtonID, "Show " + cat + " Descriptions"));
             for (DraftItem item : items) {
                 String buttonID = player.finChecker() + ACTION_NAME + item.getAlias();
                 Button b = Buttons.green(buttonID, item.getShortDescription(), item.getItemEmoji());

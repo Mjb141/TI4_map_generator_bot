@@ -14,7 +14,13 @@ import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.AgendaHelper;
 import ti4.helpers.AliasHandler;
@@ -33,16 +39,9 @@ import ti4.helpers.PromissoryNoteHelper;
 import ti4.helpers.StatusHelper;
 import ti4.helpers.omega_phase.PriorityTrackHelper;
 import ti4.helpers.omega_phase.PriorityTrackHelper.PriorityTrackMode;
-import ti4.helpers.thundersedge.DSHelperBreakthroughs;
 import ti4.image.BannerGenerator;
 import ti4.image.MapRenderPipeline;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.GameMessageManager;
 import ti4.message.GameMessageType;
 import ti4.message.MessageHelper;
@@ -63,6 +62,7 @@ import ti4.service.fow.FowCommunicationThreadService;
 import ti4.service.fow.GMService;
 import ti4.service.info.ListPlayerInfoService;
 import ti4.service.info.ListTurnOrderService;
+import ti4.service.leader.PlayHeroService;
 import ti4.service.map.SpinService;
 import ti4.service.planet.PlanetService;
 import ti4.service.strategycard.PickStrategyCardService;
@@ -286,6 +286,11 @@ public class StartPhaseService {
                     && player2.getPlayableActionCards().contains("tf-tartarus")) {
                 ActionCardHelper.playAC(event, game, player2, "tf-tartarus", game.getMainGameChannel());
             }
+            if (game.getStoredValue("Compose") != null
+                    && game.getStoredValue("Compose").contains(player2.getFaction())
+                    && player2.getPlayableActionCards().contains("tk-compose")) {
+                ActionCardHelper.playAC(event, game, player2, "tk-compose", game.getMainGameChannel());
+            }
             if (player2.hasLeader("zealotshero")
                     && player2.getLeader("zealotshero").get().isActive()
                     && !game.getStoredValue("zealotsHeroTechs").isEmpty()) {
@@ -302,8 +307,7 @@ public class StartPhaseService {
                         player2.getCorrectChannel(), msg + "the first technology.", buttons);
                 MessageHelper.sendMessageToChannelWithButtons(
                         player2.getCorrectChannel(), msg + "the second technology.", buttons);
-                player2.removeLeader("zealotshero");
-                DSHelperBreakthroughs.doLanefirBtCheck(game, player2);
+                PlayHeroService.removeLeader(game, player2, player2.unsafeGetLeader("zealotshero"));
                 ButtonHelperHeroes.checkForMykoHero(game, "zealotshero", player2);
                 game.setStoredValue("zealotsHeroTechs", "");
                 game.setStoredValue("zealotsHeroPurged", "true");
@@ -559,6 +563,19 @@ public class StartPhaseService {
                         player2.getCardsInfoThread(),
                         player2.getRepresentationUnfogged() + ", reminder that this is the window to play _Summit_.");
             }
+            if (player2.hasAbility("underhanded_maneuver")
+                    && !player2.getNeighbouringPlayers(true).isEmpty()) {
+                List<Button> buttons = new ArrayList<>();
+                buttons.add(Buttons.gray(
+                        player2.getFinsFactionCheckerPrefix() + "underhandedManeuverPickNeighbor",
+                        "Use Underhanded Maneuver",
+                        FactionEmojis.arvaxi));
+                buttons.add(Buttons.red("deleteButtons", "Decline"));
+                MessageHelper.sendMessageToChannelWithButtons(
+                        player2.getCardsInfoThread(),
+                        player2.getRepresentationUnfogged() + ", use buttons to resolve _Underhanded Maneuver_.",
+                        buttons);
+            }
             for (String pn : player2.getPromissoryNotes().keySet()) {
                 if (!player2.ownsPromissoryNote("scepter") && "scepter".equalsIgnoreCase(pn)) {
                     PromissoryNoteModel promissoryNote = Mapper.getPromissoryNote(pn);
@@ -670,9 +687,9 @@ public class StartPhaseService {
                             + ", a reminder this is the window to play The Oracle, the Naalu Hero. You may use the buttons to start the process.",
                     buttons);
         }
+        playerLeader = player.getLeader("poisonhero").orElse(null);
         if (player.hasLeader("poisonhero")
                 && player.getLeaderByID("poisonhero").isPresent()
-                && playerLeader != null
                 && !playerLeader.isLocked()) {
             List<Button> buttons = new ArrayList<>();
             buttons.add(Buttons.green("poisonHeroInitiation", "Play Poison Hero", LeaderEmojis.NaaluHero));
@@ -767,11 +784,6 @@ public class StartPhaseService {
         }
 
         for (String pn : player.getPromissoryNotes().keySet()) {
-            if (!player.ownsPromissoryNote("ce") && "ce".equalsIgnoreCase(pn)) {
-                String cyberMessage =
-                        player.getRepresentationUnfogged() + ", a reminder to use _Cybernetic Enhancements_.";
-                MessageHelper.sendMessageToChannel(player.getCardsInfoThread(), cyberMessage);
-            }
             if (!player.ownsPromissoryNote("malevolency") && "malevolency".equalsIgnoreCase(pn)) {
                 boolean mahactMalev = !player.getMahactCC().isEmpty();
                 if (mahactMalev) {
@@ -1089,10 +1101,6 @@ public class StartPhaseService {
         if (nextPlayer == null) {
             return;
         }
-        // game.updateActivePlayer(nextPlayer);
-        // if (game.isFowMode()) {
-        //     FoWHelper.pingAllPlayersWithFullStats(game, event, nextPlayer, "started turn");
-        // }
         Set<Integer> scPickedList = new HashSet<>();
         for (Player player_ : game.getRealPlayers()) {
             scPickedList.addAll(player_.getSCs());
@@ -1105,10 +1113,6 @@ public class StartPhaseService {
                 game.setScTradeGood(sc, 0);
             }
         }
-        // ButtonHelperFactionSpecific.resolveMilitarySupportCheck(nextPlayer, game);
-        // if (nextPlayer.getInRoundTurnCount() == 0) {
-        //     nextPlayer.setInRoundTurnCount(1);
-        // }
         if (isFowPrivateGame) {
             for (Player p2 : Helper.getSpeakerOrFullPriorityOrder(game)) {
                 if (p2.hasTechReady("qdn") && p2.getTg() > 2 && p2.getStrategicCC() > 0) {

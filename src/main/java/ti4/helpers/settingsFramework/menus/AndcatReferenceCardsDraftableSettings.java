@@ -22,14 +22,14 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.interactions.modals.ModalMapping;
 import net.dv8tion.jda.api.modals.Modal;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
 import ti4.helpers.settingsFramework.settings.IntegerSetting;
 import ti4.helpers.settingsFramework.settings.ListSetting;
 import ti4.helpers.settingsFramework.settings.SettingInterface;
 import ti4.image.Mapper;
-import ti4.map.Game;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.FactionModel;
 import ti4.model.Source.ComponentSource;
 import ti4.service.draft.draftables.AndcatReferenceCardsDraftable.ReferenceCardPackage;
@@ -97,7 +97,7 @@ public class AndcatReferenceCardsDraftableSettings extends SettingsMenu {
     @Override
     public List<Button> specialButtons() {
         String idPrefix = menuAction + "_" + navId() + "_";
-        ArrayList<Button> buttons = new ArrayList<>(super.specialButtons());
+        List<Button> buttons = new ArrayList<>(super.specialButtons());
         buttons.add(Buttons.blue(idPrefix + "presetPackages~MDL", "Use preset packages"));
         return buttons;
     }
@@ -220,7 +220,7 @@ public class AndcatReferenceCardsDraftableSettings extends SettingsMenu {
         return "Unknown Event";
     }
 
-    public String setPresetPackages(String packagesString) {
+    private String setPresetPackages(String packagesString) {
         if (packagesString == null || packagesString.isEmpty()) {
             return null;
         }

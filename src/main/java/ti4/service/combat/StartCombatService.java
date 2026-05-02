@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.entities.channel.attribute.IThreadContainer;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -18,8 +19,17 @@ import net.dv8tion.jda.api.requests.restaction.ThreadChannelAction;
 import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
 import ti4.ResourceHelper;
-import ti4.buttons.Buttons;
-import ti4.buttons.handlers.faction.zephyrion.ZephyrionBountyButtonHandler;
+import ti4.contest.replay.core.CombatReplayDecoys;
+import ti4.contest.replay.service.CombatReplayService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.arvaxi.ArvaxiCommanderHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.zephyrion.ZephyrionBountyButtonHandler;
+import ti4.game.Game;
+import ti4.game.Leader;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.ButtonHelperAbilities;
 import ti4.helpers.ButtonHelperAgents;
@@ -30,26 +40,24 @@ import ti4.helpers.Constants;
 import ti4.helpers.FoWHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.Units;
+import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.TeHelperUnits;
+import ti4.image.Mapper;
 import ti4.image.TileGenerator;
-import ti4.map.Game;
-import ti4.map.Leader;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.UnitModel;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.FactionEmojis;
 import ti4.service.emoji.TechEmojis;
+import ti4.service.emoji.UnitEmojis;
 import ti4.service.fow.GMService;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.statistics.round.RoundStatsTracker;
 import ti4.service.tech.BastionTechService;
 import ti4.service.turn.StartTurnService;
 import ti4.service.unit.CheckUnitContainmentService;
+import ti4.spring.context.SpringContext;
 
 @UtilityClass
 public class StartCombatService {
@@ -118,6 +126,7 @@ public class StartCombatService {
             GenericInteractionCreateEvent event,
             String specialCombatTitle) {
         RoundStatsTracker.incrementCombatsInitiated(game, player);
+        SpringContext.getBean(CombatReplayService.class).onSpaceCombatStarted(game, player, player2, tile);
         String threadName = combatThreadName(game, player, player2, tile, specialCombatTitle);
         if (!game.isFowMode()) {
             findOrCreateCombatThread(
@@ -353,7 +362,18 @@ public class StartCombatService {
         }
         if (amount > 2 || tile.getNumberOfUnitsInSystem() > 2) {
             MessageHelper.sendMessageToChannel(
-                    threadChannel, ButtonHelper.getTileSummaryMessage(game, true, tile, player1, event));
+                    threadChannel,
+                    CombatReplayDecoys.appendDebugDecoySummary(
+                            ButtonHelper.getCombatTileSummaryMessage(
+                                    game,
+                                    tile,
+                                    player1,
+                                    event,
+                                    spaceOrGround,
+                                    unitHolderName,
+                                    List.of(player1, player2)),
+                            game,
+                            tile));
         }
 
         // Space Cannon Offense
@@ -512,14 +532,20 @@ public class StartCombatService {
                         thalnos = true;
                     }
 
+                    String magenFmt = "%s, a reminder to use _%s_. The button should be above, ";
+                    magenFmt += "but it (and SPACE CANNON) are not part of automated ground combat.";
+                    if (player.hasUnit("tk-blacktrenchbulwark")) {
+                        if (uH.getUnitCount(UnitType.Pds, player) > 0) {
+                            String msg = String.format(magenFmt, player.getRepresentation(), "Black Trench Bulwark");
+                            MessageHelper.sendMessageToChannel(threadChannel, msg);
+                        }
+                    }
                     if ((player.hasTech("md") || player.hasTech("md_c1"))
                             && player.getPlanetsAllianceMode().contains(unitHolderName)) {
                         if (uH.getUnitCount(UnitType.Pds, player) > 0
                                 || uH.getUnitCount(UnitType.Spacedock, player) > 0) {
-                            MessageHelper.sendMessageToChannel(
-                                    threadChannel,
-                                    player.getRepresentation()
-                                            + ", a reminder to use _Magen Defense Grid_. The button should be above, but it (and SPACE CANNON) are not part of automated ground combat.");
+                            String msg = String.format(magenFmt, player.getRepresentation(), "Magen Defense Grid");
+                            MessageHelper.sendMessageToChannel(threadChannel, msg);
                         }
                     }
                 }
@@ -655,7 +681,7 @@ public class StartCombatService {
 
         MessageChannel channel = player.getPrivateChannel();
         channel.sendMessage("Spectate Combat in this thread:").queue(m -> {
-            ThreadChannelAction threadChannel = ((TextChannel) channel).createThreadChannel(threadName, m.getId());
+            ThreadChannelAction threadChannel = ((IThreadContainer) channel).createThreadChannel(threadName, m.getId());
             threadChannel = threadChannel.setAutoArchiveDuration(ThreadChannel.AutoArchiveDuration.TIME_3_DAYS);
             threadChannel.queue(
                     tc -> initializeSpectatorThread(tc, game, player, tile, event, systemWithContext, spaceOrGround));
@@ -859,6 +885,11 @@ public class StartCombatService {
                                 + ", a reminder that if you win this combat, you may resolve _N'orr Supremacy_ for a unit upgrade technology or a command token.",
                         buttons);
             }
+            if ("space".equalsIgnoreCase(type)
+                    && (player.getLeaderIDs().contains("arvaxicommander")
+                            || game.playerHasLeaderUnlockedOrAlliance(player, "arvaxicommander"))) {
+                ArvaxiCommanderHandler.sendCombatButtons(player, otherPlayer, game, msg);
+            }
             if (player.hasTechReady("dskortg") && CommandCounterHelper.hasCC(player, tile)) {
                 buttons = new ArrayList<>();
                 buttons.add(Buttons.gray(
@@ -918,6 +949,13 @@ public class StartCombatService {
                         + ", a reminder that when you first kill an opponent's unit this combat, you may use the button to copy a technology.";
                 MessageHelper.sendMessageToChannelWithButton(player.getCardsInfoThread(), message, steal);
             }
+            if (player.hasUnit("tk-maleagant") && "space".equalsIgnoreCase(type)) {
+                String message = player.getRepresentation() + ", a reminder that when you first kill an opponent's";
+                message += " unit this combat, you may use the button to resolve your ";
+                message += Mapper.getUnit("tk-maleagant").getNameRepresentation() + " ability.";
+                Button steal = Buttons.gray("maleagantBegin", "Discard then Draw Ability", UnitEmojis.fighter);
+                MessageHelper.sendMessageToChannelWithButton(player.getCardsInfoThread(), message, steal);
+            }
             if ((player.hasTech("tf-singularityz")
                             || player.hasTech("tf-singularityy")
                             || player.hasTech("tf-singularityx"))
@@ -951,10 +989,14 @@ public class StartCombatService {
                         + ", a reminder that if you win this combat, you may use the button to add a trade good to _The Reaping_.";
                 MessageHelper.sendMessageToChannelWithButton(player.getCardsInfoThread(), message, reap);
             }
-            if ("space".equalsIgnoreCase(type) && player.hasTech("so")) {
+
+            boolean salvage = player.hasTech("so");
+            salvage |= player.hasUnit("tk-salvagebarge")
+                    & tile.getSpaceUnitHolder().getUnitCount(UnitType.Dreadnought, player) > 0;
+            if ("space".equalsIgnoreCase(type) && salvage) {
                 buttons = new ArrayList<>();
-                buttons.add(
-                        Buttons.gray("salvageOps_" + tile.getPosition(), "Salvage Operations", FactionEmojis.Mentak));
+                String label = game.isTwilightKart() ? "Salvage Barge" : "Salvage Operations";
+                buttons.add(Buttons.gray("salvageOps_" + tile.getPosition(), label, FactionEmojis.Mentak));
                 MessageHelper.sendMessageToChannelWithButtons(
                         player.getCardsInfoThread(),
                         msg
@@ -1100,13 +1142,6 @@ public class StartCombatService {
             Game game,
             List<Player> combatPlayers,
             Tile tile) {
-        // boolean thereAreAFBUnits = false;
-        // for (Player player : combatPlayers) {
-        //     if (!CombatRollService.getUnitsInAFB(tile, player, event).isEmpty())
-        //         thereAreAFBUnits = true;
-        // }
-        // if (!thereAreAFBUnits)
-        //     return;
 
         if (tile.isScar(game)) {
             MessageHelper.sendMessageToChannel(
@@ -1158,6 +1193,21 @@ public class StartCombatService {
         return spaceCannonButtons;
     }
 
+    private static boolean hasCendos(Player player, Tile tile) {
+        int nonFighterShips = 0;
+        boolean hasDestroyer = false;
+        for (UnitKey unit : tile.getSpaceUnitHolder().getUnitKeysForPlayer(player)) {
+            UnitModel model = player.getUnitFromUnitKey(unit);
+            if (unit.unitType() == UnitType.Destroyer) {
+                hasDestroyer = true;
+            }
+            if (model.isNonFighterShip()) {
+                nonFighterShips += tile.getSpaceUnitHolder().getUnitCount(unit);
+            }
+        }
+        return player.hasUnit("tk-cendos") && hasDestroyer && nonFighterShips >= 3;
+    }
+
     private static List<Button> getStartOfSpaceCombatButtons(Game game, Player p1, Player p2, Tile tile) {
         List<Button> buttons = new ArrayList<>();
         if (game.isFowMode()) return buttons;
@@ -1173,6 +1223,12 @@ public class StartCombatService {
                                 || ButtonHelper.doesPlayerHaveFSHere("sigma_nekro_flagship_2", p2, tile)))) {
             buttons.add(Buttons.blue(
                     "assCannonNDihmohn_asc_" + tile.getPosition(), "Use Assault Cannon", TechEmojis.WarfareTech));
+        }
+
+        // Assault Escort
+        if (hasCendos(p1, tile) || hasCendos(p2, tile)) {
+            buttons.add(
+                    Buttons.blue("assCannonNDihmohn_assEsc_" + tile.getPosition(), "Use Cendos", UnitEmojis.destroyer));
         }
 
         // Dimensional Splicer
@@ -1414,7 +1470,7 @@ public class StartCombatService {
                 buttons.add(Buttons.gray(
                         finChecker + "empyreanFlagshipAbilityStep1_" + pos,
                         "Use Empyrean Flagship Ability",
-                        FactionEmojis.Empyrean));
+                        agentHolder.getFactionEmojiOrColor()));
             }
 
             if ((!game.isFowMode() || agentHolder == p1)
@@ -1811,7 +1867,10 @@ public class StartCombatService {
             addForesightButton.accept(p1);
 
             Consumer<Player> addRalnelCommanderButton = (player) -> {
-                if (game.playerHasLeaderUnlockedOrAlliance(player, "ralnelcommander")) {
+                if (game.playerHasLeaderUnlockedOrAlliance(player, "ralnelcommander")
+                        && !ButtonHelperModifyUnits.getRetreatSystemButtons(
+                                        player, game, game.getActiveSystem(), false, false)
+                                .isEmpty()) {
                     buttons.add(Buttons.red(
                             player.getFinsFactionCheckerPrefix() + "ralnelCommander_" + pos,
                             "Retreat With Ralnel Commander",
@@ -2026,6 +2085,13 @@ public class StartCombatService {
                         String label = "Use Sol Commander on " + nameOfHolder;
                         buttons.add(Buttons.gray(id, label, FactionEmojis.Sol));
                     }
+                    if (p.hasUnit("tk-genesiscorps")
+                            && isGroundCombat
+                            && unitH.getUnitCount(UnitType.Infantry, p) > 0) {
+                        String id = p.finChecker() + "utilizeSolCommander_" + unitH.getName();
+                        String label = "Use Genesis Corps on " + nameOfHolder;
+                        buttons.add(Buttons.gray(id, label, FactionEmojis.Sol));
+                    }
                     if (p != game.getActivePlayer()
                             && p.hasUnlockedBreakthrough("mykomentoribt")
                             && p.getNombox().getUnitCount(UnitType.Infantry, p) > 0
@@ -2034,6 +2100,17 @@ public class StartCombatService {
                         String label = "Roll Myko Breakthrough on " + nameOfHolder;
                         buttons.add(Buttons.gray(id, label, FactionEmojis.mykomentori));
                     }
+                    if (p.hasUnit("blacktf_mech")
+                            && isGroundCombat
+                            && unitH.getUnitCount(UnitType.Mech, p) > 0
+                            && p.getNombox().getUnitCount(UnitType.Infantry, p) > 0) {
+                        buttons.add(Buttons.gray(
+                                p.getFinsFactionCheckerPrefix() + "blackTFMechReroll_" + tile.getPosition() + "_"
+                                        + unitH.getName(),
+                                "Reroll 1 Mech on " + nameOfHolder,
+                                FactionEmojis.blacktf));
+                    }
+
                     // atokera
                     if (p.hasUnit("atokera_mech")
                             && isGroundCombat
@@ -2077,6 +2154,12 @@ public class StartCombatService {
                         String id = p.finChecker() + "magenHit_" + unitH.getName();
                         String label = "Use Magen Defense Grid on " + nameOfHolder;
                         buttons.add(Buttons.gray(id, label, TechEmojis.WarfareTech));
+                    }
+                    if (p.hasUnit("tk-blacktrenchbulwark")
+                            && unitH.getUnitCount(Units.UnitType.Pds, p.getColor()) > 0) {
+                        String id = p.finChecker() + "magenHit_" + unitH.getName();
+                        String label = "Use Black Trench Bulwark on " + nameOfHolder;
+                        buttons.add(Buttons.gray(id, label, UnitEmojis.pds));
                     }
                     if (p.hasAbility("ruthless")
                             && isGroundCombat

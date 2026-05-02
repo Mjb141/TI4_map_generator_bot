@@ -10,15 +10,15 @@ import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
 import ti4.helpers.thundersedge.TeHelperPromissories;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.model.PromissoryNoteModel;
 import ti4.model.TemporaryCombatModifierModel;
 import ti4.service.abilities.MahactTokenService;
@@ -33,9 +33,13 @@ import ti4.service.unit.AddUnitService;
 @UtilityClass
 public class PromissoryNoteHelper {
 
+    private static final String PINNED_PN_INFO_MESSAGE_ID = "pinned_pn_info_message_id";
+
     public static void sendPromissoryNoteInfo(Game game, Player player, boolean longFormat) {
-        MessageHelper.sendMessageToChannelWithButtons(
-                player.getCardsInfoThread(),
+        MessageHelper.sendMessageToPlayerCardsInfoThreadWithButtonsAndPin(
+                game,
+                player,
+                PINNED_PN_INFO_MESSAGE_ID,
                 getPromissoryNoteCardInfo(game, player, longFormat, false),
                 getPNButtons(game, player));
     }
@@ -550,9 +554,6 @@ public class PromissoryNoteHelper {
                     game,
                     player,
                     riderButtons);
-            // MessageHelper.sendMessageToChannelWithPersistentReacts(game.getMainGameChannel(),
-            //    "Please indicate \"no afters\" again.", game, afterButtons, GameMessageType.AGENDA_AFTER);
-
         }
         if ("dspnedyn".equalsIgnoreCase(id)) {
             String riderName = "Edyn Rider";
@@ -566,8 +567,6 @@ public class PromissoryNoteHelper {
                     game,
                     player,
                     riderButtons);
-            // MessageHelper.sendMessageToChannelWithPersistentReacts(game.getMainGameChannel(),
-            //    "Please indicate \"no afters\" again.", game, afterButtons, GameMessageType.AGENDA_AFTER);
         }
         if ("dspnkyro".equalsIgnoreCase(id)) {
             String riderName = "Kyro Rider";
@@ -581,8 +580,6 @@ public class PromissoryNoteHelper {
                     game,
                     player,
                     riderButtons);
-            // MessageHelper.sendMessageToChannelWithPersistentReacts(game.getMainGameChannel(),
-            //    "Please indicate \"no afters\" again.", game, afterButtons, GameMessageType.AGENDA_AFTER);
         }
         if ("spynet".equalsIgnoreCase(id)) {
             ButtonHelperFactionSpecific.offerSpyNetOptions(player);

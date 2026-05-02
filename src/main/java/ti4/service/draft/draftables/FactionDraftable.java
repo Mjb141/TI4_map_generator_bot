@@ -12,15 +12,15 @@ import lombok.Getter;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.Constants;
 import ti4.helpers.settingsFramework.menus.DraftSystemSettings;
 import ti4.helpers.settingsFramework.menus.FactionDraftableSettings;
 import ti4.helpers.settingsFramework.menus.SettingsMenu;
 import ti4.helpers.settingsFramework.menus.SourceSettings;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.model.FactionModel;
 import ti4.model.LeaderModel;
@@ -119,8 +119,8 @@ public class FactionDraftable extends SinglePickDraftable {
     }
 
     public static FactionModel getFactionByChoice(DraftChoice choice) {
-        if (choice == null || choice.getChoiceKey() == null) return null;
-        return getFactionByChoice(choice.getChoiceKey());
+        if (choice == null || choice.choiceKey() == null) return null;
+        return getFactionByChoice(choice.choiceKey());
     }
 
     private static FactionModel getFactionByChoice(String choiceKey) {
@@ -187,7 +187,7 @@ public class FactionDraftable extends SinglePickDraftable {
                         draftManager.getPlayerStates().get(pId).getPicks().get(TYPE);
                 if (playerChoices != null) {
                     for (DraftChoice choice : playerChoices) {
-                        informFactions.remove(choice.getChoiceKey());
+                        informFactions.remove(choice.choiceKey());
                     }
                 }
             }
@@ -203,8 +203,8 @@ public class FactionDraftable extends SinglePickDraftable {
                         draftManager.getPlayerStates().get(pId).getPicks().get(TYPE);
                 if (playerChoices != null) {
                     for (DraftChoice choice : playerChoices) {
-                        if (!informFactions.contains(choice.getChoiceKey())) {
-                            informFactions.add(choice.getChoiceKey());
+                        if (!informFactions.contains(choice.choiceKey())) {
+                            informFactions.add(choice.choiceKey());
                         }
                     }
                 }
@@ -254,9 +254,9 @@ public class FactionDraftable extends SinglePickDraftable {
     public void postApplyDraftPick(
             GenericInteractionCreateEvent event, DraftManager draftManager, String playerUserId, DraftChoice choice) {
 
-        if (choice.getChoiceKey().contains("keleres")) {
+        if (choice.choiceKey().contains("keleres")) {
             sendKeleresButtons(draftManager, playerUserId, false);
-        } else if (keleresFlavor != null && choice.getChoiceKey().contains(keleresFlavor)) {
+        } else if (keleresFlavor != null && choice.choiceKey().contains(keleresFlavor)) {
             keleresFlavor = null;
             List<String> keleresPlayers = draftManager.getPlayersWithChoiceKey(TYPE, "keleresm");
             if (!keleresPlayers.isEmpty()) {
@@ -264,7 +264,7 @@ public class FactionDraftable extends SinglePickDraftable {
             }
         } else if (keleresFlavor == null
                 && draftFactions.contains("keleresm")
-                && keleresFlavors.contains(choice.getChoiceKey())) {
+                && keleresFlavors.contains(choice.choiceKey())) {
             List<String> keleresPlayers = draftManager.getPlayersWithChoiceKey(TYPE, "keleresm");
             if (!keleresPlayers.isEmpty()) {
                 sendKeleresButtons(draftManager, keleresPlayers.getFirst(), false);
@@ -308,7 +308,7 @@ public class FactionDraftable extends SinglePickDraftable {
 
         List<DraftChoice> playerPicks = draftManager.getPlayerPicks(playerUserId, TYPE);
         if (!playerPicks.isEmpty()) {
-            String factionAlias = playerPicks.getFirst().getChoiceKey();
+            String factionAlias = playerPicks.getFirst().choiceKey();
             if (factionAlias.contains("keleres")) {
                 if (keleresFlavor == null) {
                     throw new IllegalStateException(

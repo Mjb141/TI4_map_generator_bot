@@ -8,12 +8,12 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
-import ti4.buttons.handlers.strategycard.PickStrategyCardButtonHandler;
+import ti4.discord.interactions.buttons.handlers.strategycard.PickStrategyCardButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.Helper;
 import ti4.helpers.omega_phase.PriorityTrackHelper;
 import ti4.helpers.omega_phase.PriorityTrackHelper.PriorityTrackMode;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.message.MessageHelper;
 import ti4.service.game.StartPhaseService;
 import ti4.service.player.PlayerStatsService;
@@ -64,18 +64,16 @@ public class PickStrategyCardService {
             if (privatePlayer != null) {
                 MessageHelper.sendMessageToChannel(privatePlayer.getPrivateChannel(), msgExtra);
                 game.updateActivePlayer(privatePlayer);
-                if (!allPicked) {
-                    game.setPhaseOfGame("strategy");
-                    game.updateActivePlayer(privatePlayer);
-                    boolean queuedPick = false;
-                    if (event instanceof ButtonInteractionEvent bevent) {
-                        queuedPick = checkForQueuedSCPick(bevent, privatePlayer, game, msgExtra);
-                    }
-                    if (!queuedPick) {
-                        checkForForcePickLastStratCard(event, privatePlayer, game, msgExtra);
-                    } else {
-                        return;
-                    }
+                game.setPhaseOfGame("strategy");
+                game.updateActivePlayer(privatePlayer);
+                boolean queuedPick = false;
+                if (event instanceof ButtonInteractionEvent bevent) {
+                    queuedPick = checkForQueuedSCPick(bevent, privatePlayer, game, msgExtra);
+                }
+                if (!queuedPick) {
+                    checkForForcePickLastStratCard(event, privatePlayer, game, msgExtra);
+                } else {
+                    return;
                 }
             }
         } else {

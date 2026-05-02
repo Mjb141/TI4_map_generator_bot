@@ -12,6 +12,11 @@ import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import ti4.game.Game;
+import ti4.game.Planet;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ButtonHelperTacticalAction;
 import ti4.helpers.CheckDistanceHelper;
 import ti4.helpers.Constants;
@@ -19,11 +24,6 @@ import ti4.helpers.FoWHelper;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitState;
 import ti4.helpers.Units.UnitType;
-import ti4.map.Game;
-import ti4.map.Planet;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
 import ti4.message.MessageHelper;
 import ti4.model.UnitModel;
 import ti4.service.fow.FOWPlusService;
@@ -100,11 +100,16 @@ public class TacticalActionOutputService {
 
     private String buildMessageForSingleSystem(
             Game game, Player player, Tile tile, boolean condensed, boolean inclSummary) {
-        String linePrefix = "> " + player.getFactionEmoji();
+        String linePrefix = "> ";
         int distance = CheckDistanceHelper.getDistanceBetweenTwoTiles(
                 game, player, tile.getPosition(), game.getActiveSystem(), true);
         int riftDistance = CheckDistanceHelper.getDistanceBetweenTwoTiles(
                 game, player, tile.getPosition(), game.getActiveSystem(), false);
+
+        Tile activeTile = game.getTileByPosition(game.getActiveSystem());
+        if (player.hasTech("scc") && tile.containsPlayersUnits(player) && activeTile.containsPlayersUnits(player)) {
+            distance = riftDistance = 1;
+        }
 
         var displaced = game.getTacticalActionDisplacement();
         Set<UnitKey> movingUnitsFromTile = displaced.entrySet().stream()
@@ -152,7 +157,7 @@ public class TacticalActionOutputService {
 
                 List<Integer> states = unitMap.get(key);
                 if (condensed) {
-                    int amt = states.stream().mapToInt(i -> i).sum();
+                    int amt = states.stream().mapToInt(Integer::intValue).sum();
                     String unitStr = key.unitEmoji().emojiString().repeat(amt);
                     if (amt > 2) unitStr = amt + "x " + key.unitEmoji();
                     lines.add(unitStr);
@@ -166,7 +171,7 @@ public class TacticalActionOutputService {
                     int amt = states.get(state.ordinal());
                     if (amt == 0) continue;
 
-                    String stateStr = (state == UnitState.none) ? "" : " " + state.humanDescr();
+                    String stateStr = (state == UnitState.none) ? "" : " " + state.stateEmoji();
                     String unitMoveStr = linePrefix + " moved " + amt + color + stateStr + " " + key.unitEmoji();
 
                     String unitHolderStr =
@@ -226,38 +231,57 @@ public class TacticalActionOutputService {
         int moveValue = getUnitMoveValue(game, player, tile, unit, allMovingUnits, false);
         if (moveValue == 0) return "";
 
-        String output = "";
+        StringBuilder output = new StringBuilder();
         int maxBonus = 0;
         if (distance > moveValue && distance < 90) {
-            output += " (distance exceeds move value (" + distance + " > " + moveValue + ")";
+            output.append(" (distance exceeds move value (")
+                    .append(distance)
+                    .append(" > ")
+                    .append(moveValue)
+                    .append(")");
 
             if (player.hasTech("gd")) {
                 maxBonus++;
-                output += ", used _Gravity Drive_)";
+                output.append(", used _Gravity Drive_)");
             } else {
-                output += ", __does not have _Gravity Drive___)";
+                output.append(", __does not have _Gravity Drive___)");
+            }
+            if (player.hasUnit("tk-voidcarver")) {
+                maxBonus++;
+                output.append(" (has _Voidcarver_ for +1 movement for one other ship moving from the same system)");
+            }
+            if (player.hasUnit("tk-dissident") && unit.unitType() == UnitType.Dreadnought) {
+                for (Player p2 : game.getRealPlayers()) {
+                    if (!tile.containsPlayersUnits(p2)) continue;
+                    if (player.getTotalVictoryPoints() < p2.getTotalVictoryPoints()) {
+                        maxBonus++;
+                        output.append(" (_Dissident_ has +1 movement to this system)");
+                    }
+                }
             }
             if (player.hasUnlockedBreakthrough("winnubt")
                     && game.getTileByPosition(game.getActiveSystem()).hasLegendary()) {
                 maxBonus++;
-                output +=
-                        " (has _Imperator_ for +1 movement for one ship when moving into a legendary planet's system)";
+                output.append(
+                        " (has _Imperator_ for +1 movement for one ship when moving into a legendary planet's system)");
             }
             if (player.getTechs().contains("dsgledb")) {
                 maxBonus++;
-                output += " (has _Lightning Drives_ for +1 movement if not transporting)";
+                output.append(" (has _Lightning Drives_ for +1 movement if not transporting)");
             }
             if (riftDistance < distance) {
                 // maxBonus += distance - riftDistance; // Don't automatically count rifts, allow the GM to verify
-                output += " (gravity rifts along a path could add +" + (distance - riftDistance) + " movement if used)";
+                output.append(" (gravity rifts along a path could add +")
+                        .append(distance - riftDistance)
+                        .append(" movement if used)");
                 game.setStoredValue("possiblyUsedRift", "yes");
             }
         }
         if ((distance > (moveValue + maxBonus)) && game.isFowMode()) {
-            GMService.logPlayerActivity(game, player, output);
+            GMService.logPlayerActivity(game, player, output.toString());
         }
         if (distance > 90 && player.hasAbility("sundered")) {
-            output += " (__Warning__: has **Sundered**, and so cannot use wormholes)";
+            output.append(" (__Warning__: has **Sundered**, and so cannot use wormholes)");
         }
         if (riftDistance < distance) {
             game.setStoredValue("possiblyUsedRift", "yes");
@@ -265,7 +289,7 @@ public class TacticalActionOutputService {
         if (player.hasAbility("celestial_guides")) {
             game.setStoredValue("possiblyUsedRift", "");
         }
-        return output;
+        return output.toString();
     }
 
     private int getUnitMoveValue(

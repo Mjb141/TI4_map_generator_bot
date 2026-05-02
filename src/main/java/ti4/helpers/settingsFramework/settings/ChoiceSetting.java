@@ -19,8 +19,8 @@ import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionE
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
-import ti4.message.logging.BotLogger;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.logging.BotLogger;
 import tools.jackson.databind.JsonNode;
 
 @Getter

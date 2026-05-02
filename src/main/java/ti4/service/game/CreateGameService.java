@@ -6,10 +6,10 @@ import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import lombok.experimental.UtilityClass;
@@ -32,25 +32,25 @@ import net.dv8tion.jda.api.utils.FileUpload;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
 import ti4.ResourceHelper;
-import ti4.buttons.Buttons;
-import ti4.commands.CommandHelper;
+import ti4.discord.JdaService;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.commands.CommandHelper;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.persistence.GameManager;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.Constants;
 import ti4.helpers.Helper;
 import ti4.helpers.TIGLHelper;
 import ti4.helpers.ThreadArchiveHelper;
 import ti4.image.ImageHelper;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.persistence.GameManager;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.service.async.ReserveGameNumberService;
 import ti4.service.image.FileUploadService;
 import ti4.settings.GlobalSettings;
 import ti4.settings.users.UserSettingsManager;
-import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class CreateGameService {
@@ -128,7 +128,7 @@ public class CreateGameService {
         }
 
         // CHECK IF GUILD HAS ALL PLAYERS LISTED
-        List<Member> missingMembers = inviteUsersToServer(guild, members, event.getMessageChannel());
+        List<Member> missingMembers = inviteUsersToServer(guild, members, event.getMessageChannel(), gameName);
 
         // CREATE ROLE
         Role role = guild.createRole().setName(gameName).setMentionable(true).complete();
@@ -428,6 +428,11 @@ public class CreateGameService {
      * @return the list of missing members
      */
     public static List<Member> inviteUsersToServer(Guild guild, List<Member> members, MessageChannel channel) {
+        return inviteUsersToServer(guild, members, channel, null);
+    }
+
+    private static List<Member> inviteUsersToServer(
+            Guild guild, List<Member> members, MessageChannel channel, String gameName) {
         List<String> guildMemberIDs =
                 guild.getMembers().stream().map(ISnowflake::getId).toList();
         List<Member> missingMembers = new ArrayList<>();
@@ -451,36 +456,29 @@ public class CreateGameService {
             MessageHelper.sendMessageToChannel(channel, sb.toString());
             String msg2 =
                     "If you have joined the server and cannot find your game, please click this button. If the invite has expired, please press this other button.";
-            Button findGameButton = Buttons.green("pingGame", "Locate My Game");
+            String findGameButtonId = gameName == null ? "pingGame" : "pingGame_" + gameName;
+            Button findGameButton = Buttons.green(findGameButtonId, "Locate My Game");
             Button resendInvite = Buttons.blue("resendInvite_" + guild.getId(), "Resend Server Invite");
             MessageHelper.sendMessageToChannelWithButtons(channel, msg2, List.of(findGameButton, resendInvite));
         }
         return missingMembers;
     }
 
-    private static Integer getNextGameNumber() {
-        List<Integer> existingNums = getAllExistingPBDNumbers();
-        if (existingNums.isEmpty()) {
-            return 1;
-        }
-        int nextPBDNumber = Collections.max(existingNums) + 1;
-        while (ReserveGameNumberService.isGameNumReserved("pbd" + nextPBDNumber)) {
-            nextPBDNumber++;
-        }
-        return nextPBDNumber;
+    public static String getNextPbdGameName() {
+        String nextGameName;
+        do {
+            nextGameName = "pbd" + GameManager.getAndIncrementLatestPbdNumber();
+        } while (ReserveGameNumberService.isGameNumReserved(nextGameName));
+        return nextGameName;
     }
 
-    public static String getNextGameName() {
-        return "pbd" + getNextGameNumber();
-    }
-
-    public static String getLastGameName() {
-        List<Integer> existingNums = getAllExistingPBDNumbers();
-        if (existingNums.isEmpty()) {
-            return "pbd1";
+    @Nullable
+    public static String getLastPbdGameName() {
+        int latestPbdNumber = GameManager.getLatestPbdNumber();
+        if (latestPbdNumber == 0) {
+            return null;
         }
-        int nextPBDNumber = Collections.max(existingNums);
-        return "pbd" + nextPBDNumber;
+        return "pbd" + latestPbdNumber;
     }
 
     public static boolean gameOrRoleAlreadyExists(String name) {
@@ -500,39 +498,6 @@ public class CreateGameService {
 
         // CHECK
         return gameAndRoleNames.contains(name);
-    }
-
-    private static List<Integer> getAllExistingPBDNumbers() {
-        List<Guild> guilds = new ArrayList<>(JdaService.guilds);
-        List<Integer> pbdNumbers = new ArrayList<>();
-
-        // GET ALL PBD ROLES FROM ALL GUILDS
-        for (Guild guild : guilds) {
-            List<Role> pbdRoles = guild.getRoles().stream()
-                    .filter(r -> r.getName().startsWith("pbd"))
-                    .toList();
-
-            // EXISTING ROLE NAMES
-            for (Role role : pbdRoles) {
-                String pbdNum = role.getName().replace("pbd", "");
-                if (Helper.isInteger(pbdNum)) {
-                    pbdNumbers.add(Integer.parseInt(pbdNum));
-                }
-            }
-        }
-
-        // GET ALL EXISTING PBD MAP NAMES
-        List<String> gameNames = GameManager.getGameNames().stream()
-                .filter(gameName -> gameName.startsWith("pbd"))
-                .toList();
-        for (String gameName : gameNames) {
-            String pbdNum = gameName.replace("pbd", "");
-            if (Helper.isInteger(pbdNum)) {
-                pbdNumbers.add(Integer.parseInt(pbdNum));
-            }
-        }
-
-        return pbdNumbers;
     }
 
     @Nullable
@@ -784,12 +749,12 @@ public class CreateGameService {
         // avoid words that are similar to names of TI4 components (or parts thereof) e.g. "Quantum"
         // also avoid words that are similar to existing words or the list e.g. "Cyberspace" -> Nullspace", "Subspace", "Hyperspace"
         // spotless:on
-        int gameNumber = getNextGameNumber();
-        int first = gameNumber & 0xFF;
-        int second = (gameNumber >> 8) & 0xFF;
-        int third = (gameNumber >> 16) & 0xFF;
-        second ^= first;
-        third ^= second;
-        return words.get(37 * first & 0xFF) + "-" + words.get(53 * second & 0xFF) + "-" + words.get(83 * third & 0xFF);
+
+        return ThreadLocalRandom.current()
+                .ints(0, words.size())
+                .distinct()
+                .limit(3)
+                .mapToObj(words::get)
+                .collect(Collectors.joining("-"));
     }
 }

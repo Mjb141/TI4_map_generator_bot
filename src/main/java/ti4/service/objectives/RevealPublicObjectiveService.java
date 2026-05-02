@@ -8,14 +8,16 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.function.Consumers;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.tyris.RewriteDestinyHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.tyris.TyrisCommanderButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.Constants;
 import ti4.helpers.DisplayType;
 import ti4.image.MapRenderPipeline;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.PublicObjectiveModel;
 import ti4.model.SecretObjectiveModel;
 import ti4.service.StatusCleanupService;
@@ -39,9 +41,22 @@ public class RevealPublicObjectiveService {
         } else {
             objective = game.revealStage2();
         }
+        if (objective == null) {
+            MessageHelper.sendMessageToChannel(
+                    game.getActionsChannel(), "No unrevealed stage 2 public objectives remain.");
+            return;
+        }
 
         PublicObjectiveModel po = Mapper.getPublicObjective(objective.getKey());
         NeuraloopService.offerInitialNeuraloopChoice(game, objective.getKey());
+        for (Player player : game.getRealPlayers()) {
+            if (player.hasAbility("rewrite_destiny")) {
+                RewriteDestinyHandler.offerRewriteDestiny(game, player, objective.getKey(), 2);
+            }
+            if (game.playerHasLeaderUnlockedOrAlliance(player, "tyriscommander")) {
+                TyrisCommanderButtonHandler.offerInfantry(game, player);
+            }
+        }
         var channel = game.getActionsChannel();
         if (game.isLiberationC4Mode()) {
             if (game.getRevealedPublicObjectives().get("Control Ordinian") == null
@@ -176,6 +191,14 @@ public class RevealPublicObjectiveService {
         channel.sendMessageEmbeds(po.getRepresentationEmbed())
                 .queue(m -> m.pin().queue(Consumers.nop(), BotLogger::catchRestError));
         NeuraloopService.offerInitialNeuraloopChoice(game, objective.getKey());
+        for (Player player : game.getRealPlayers()) {
+            if (player.hasAbility("rewrite_destiny")) {
+                RewriteDestinyHandler.offerRewriteDestiny(game, player, objective.getKey(), 1);
+            }
+            if (game.playerHasLeaderUnlockedOrAlliance(player, "tyriscommander")) {
+                TyrisCommanderButtonHandler.offerInfantry(game, player);
+            }
+        }
         if (!"status".equalsIgnoreCase(game.getPhaseOfGame())) {
             if (!game.isFowMode() && !Objects.equals(objective.getKey(), Constants.IMPERIUM_REX_ID)) {
                 MessageHelper.sendMessageToChannel(

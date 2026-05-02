@@ -3,7 +3,6 @@ package ti4.service.game;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import lombok.experimental.UtilityClass;
@@ -17,6 +16,9 @@ import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.function.Consumers;
+import ti4.discord.JdaService;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.DisplayType;
 import ti4.helpers.Helper;
 import ti4.helpers.PlayerTitleHelper;
@@ -24,12 +26,10 @@ import ti4.helpers.RepositoryDispatchEvent;
 import ti4.helpers.ThreadGetter;
 import ti4.helpers.async.RoundSummaryHelper;
 import ti4.image.MapRenderPipeline;
-import ti4.map.Game;
-import ti4.map.Player;
+import ti4.logging.BotLogger;
+import ti4.logging.LogOrigin;
 import ti4.message.GameMessageManager;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
-import ti4.message.logging.LogOrigin;
 import ti4.service.async.RoleService;
 import ti4.service.emoji.ColorEmojis;
 import ti4.service.statistics.game.WinningPathComparisonService;
@@ -38,7 +38,6 @@ import ti4.service.statistics.game.WinningPathPersistenceService;
 import ti4.service.tigl.TiglReportService;
 import ti4.spring.api.image.GameImageService;
 import ti4.spring.context.SpringContext;
-import ti4.spring.jda.JdaService;
 
 @UtilityClass
 public class EndGameService {
@@ -172,11 +171,12 @@ public class EndGameService {
         }
 
         // Archive Game Channels
-        if (tableTalkChannel != null) {
-            new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", tableTalkChannel.getId()))
-                    .sendEvent();
-        }
-        new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", actionsChannel.getId())).sendEvent();
+        // disabled - too many games are ending now, creating too many GitHub action runs.
+        // if (tableTalkChannel != null) {
+        //     new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", tableTalkChannel.getId()))
+        //             .sendEvent();
+        // }
+        // new RepositoryDispatchEvent("archive_game_channel", Map.of("channel", actionsChannel.getId())).sendEvent();
 
         if (rematch) {
             RematchService.secondHalfOfRematch(event, game);
@@ -229,13 +229,7 @@ public class EndGameService {
                                                 success -> {
                                                     // Save message ID to SQLite, same as show game
                                                     SpringContext.getBean(GameImageService.class)
-                                                            .saveDiscordMessageId(
-                                                                    game,
-                                                                    success.getIdLong(),
-                                                                    success.getGuild()
-                                                                            .getIdLong(),
-                                                                    success.getChannel()
-                                                                            .getIdLong());
+                                                            .saveDiscordMessage(game.getName(), success);
                                                 },
                                                 BotLogger::catchRestError); // ADD MAP FILE TO MESSAGE
                                 m.createThreadChannel(game.getName()).queueAfter(2, TimeUnit.SECONDS, t -> {

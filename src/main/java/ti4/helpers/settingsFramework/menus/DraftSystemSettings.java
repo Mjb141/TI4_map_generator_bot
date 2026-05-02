@@ -11,14 +11,14 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.jetbrains.annotations.NotNull;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.settingsFramework.settings.ChoiceSetting;
 import ti4.helpers.settingsFramework.settings.ListSetting;
 import ti4.helpers.settingsFramework.settings.ReadOnlyTextSetting;
 import ti4.helpers.settingsFramework.settings.SettingInterface;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
 import ti4.message.MessageHelper;
 import ti4.service.draft.DraftComponentFactory;
 import ti4.service.draft.DraftSetupService;
@@ -257,7 +257,7 @@ public class DraftSystemSettings extends SettingsMenu {
                 SpeakerOrderDraftable.class.getSimpleName()));
         draftOrchestrator.setChosenKey(PublicSnakeDraftOrchestrator.class.getSimpleName());
         sliceSettings.getMapGenerationMode().setChosenKey("Nucleus");
-        setPreset("Nucleus Draft");
+        preset = "Nucleus Draft";
     }
 
     public void setupAndcatMiltyTwilightsFallPreset() {
@@ -268,7 +268,7 @@ public class DraftSystemSettings extends SettingsMenu {
         draftOrchestrator.setChosenKey(PublicSnakeDraftOrchestrator.class.getSimpleName());
         sliceSettings.getMapGenerationMode().setChosenKey("Milty");
         sourceSettings.getTeDemo().setVal(true);
-        setPreset("Twilights Fall (Andcat Draft)");
+        preset = "Twilights Fall (Andcat Draft)";
     }
 
     public void setupAndcatNucleusTwilightsFallPreset() {
@@ -280,6 +280,6 @@ public class DraftSystemSettings extends SettingsMenu {
         draftOrchestrator.setChosenKey(PublicSnakeDraftOrchestrator.class.getSimpleName());
         sliceSettings.getMapGenerationMode().setChosenKey("Nucleus");
         sourceSettings.getTeDemo().setVal(true);
-        setPreset("Twilights Fall (Andcat Draft)");
+        preset = "Twilights Fall (Andcat Draft)";
     }
 }

@@ -12,7 +12,12 @@ import java.util.stream.Collectors;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.buttons.Buttons;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.game.Game;
+import ti4.game.Player;
+import ti4.game.Tile;
+import ti4.game.UnitHolder;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.ButtonHelper;
 import ti4.helpers.RegexHelper;
@@ -20,13 +25,8 @@ import ti4.helpers.Units;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
-import ti4.listeners.annotations.ButtonHandler;
-import ti4.map.Game;
-import ti4.map.Player;
-import ti4.map.Tile;
-import ti4.map.UnitHolder;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
-import ti4.message.logging.BotLogger;
 import ti4.model.ActionCardModel;
 import ti4.model.UnitModel;
 import ti4.service.RemoveCommandCounterService;
@@ -156,8 +156,7 @@ public final class TeHelperAgents {
                     .filter(uk -> player.getUnitFromUnitKey(uk).getIsShip())
                     .collect(Collectors.toSet());
             keys.stream()
-                    .map(uk ->
-                            Buttons.blue(prefix + uk.asyncID(), uk.getUnitType().humanReadableName(), uk.unitEmoji()))
+                    .map(uk -> Buttons.blue(prefix + uk.asyncID(), uk.unitType().humanReadableName(), uk.unitEmoji()))
                     .forEach(newButtons::add);
 
         } else if ((matcher = Pattern.compile(part3).matcher(buttonID)).matches()) {
@@ -186,8 +185,7 @@ public final class TeHelperAgents {
                     .filter(uk -> player.getUnitFromUnitKey(uk).getIsShip())
                     .collect(Collectors.toSet());
             keys.stream()
-                    .map(uk ->
-                            Buttons.blue(prefix + uk.asyncID(), uk.getUnitType().humanReadableName(), uk.unitEmoji()))
+                    .map(uk -> Buttons.blue(prefix + uk.asyncID(), uk.unitType().humanReadableName(), uk.unitEmoji()))
                     .forEach(newButtons::add);
 
         } else if ((matcher = Pattern.compile(part5).matcher(buttonID)).matches()) {

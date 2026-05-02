@@ -1,6 +1,6 @@
 package ti4.draft;
 
-import ti4.map.Game;
+import ti4.game.Game;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.FactionEmojis;
 import ti4.service.emoji.LeaderEmojis;
@@ -84,9 +84,6 @@ public enum DraftCategory {
     }
 
     public boolean showDescrByDefault() {
-        return switch (this) {
-            case STARTINGTECH, STARTINGFLEET -> true;
-            default -> true;
-        };
+        return true;
     }
 }

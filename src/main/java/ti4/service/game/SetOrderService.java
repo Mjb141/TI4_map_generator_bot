@@ -7,10 +7,11 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
-import ti4.map.Game;
-import ti4.map.Player;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.message.MessageHelper;
 import ti4.service.emoji.MiscEmojis;
+import ti4.service.fow.GMService;
 
 @UtilityClass
 public class SetOrderService {
@@ -37,8 +38,21 @@ public class SetOrderService {
                 sb.append(MiscEmojis.SpeakerToken);
             }
         }
-        MessageChannel channel = event == null ? game.getActionsChannel() : event.getMessageChannel();
-        MessageHelper.sendMessageToChannel(channel, sb.toString());
+        MessageChannel channel = getAnnouncementChannel(event, game);
+        if (channel != null) {
+            MessageHelper.sendMessageToChannel(channel, sb.toString());
+        }
+    }
+
+    private static MessageChannel getAnnouncementChannel(GenericInteractionCreateEvent event, Game game) {
+        if (game.isFowMode()) {
+            MessageChannel gmChannel = GMService.getGMChannel(game);
+            if (gmChannel != null && !gmChannel.equals(game.getMainGameChannel())) {
+                return gmChannel;
+            }
+            return null;
+        }
+        return event == null ? game.getActionsChannel() : event.getMessageChannel();
     }
 
     private static void setPlayerOrder(Map<String, Player> newPlayerOrder, Map<String, Player> players, User user) {

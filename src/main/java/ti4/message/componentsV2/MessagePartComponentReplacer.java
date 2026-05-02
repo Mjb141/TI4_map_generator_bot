@@ -16,9 +16,9 @@ import net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem;
 import net.dv8tion.jda.api.components.replacer.IReplaceable;
 import net.dv8tion.jda.api.components.section.Section;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import ti4.logging.BotLogger;
 import ti4.message.componentsV2.MessageV2Editor.MessagePartType;
 import ti4.message.componentsV2.MessageV2Editor.ReplaceMessagePart;
-import ti4.message.logging.BotLogger;
 
 public class MessagePartComponentReplacer implements TrackingComponentReplacer {
     private final Map<String, ReplaceMessagePart> replaceByCustomId;
@@ -152,8 +152,7 @@ public class MessagePartComponentReplacer implements TrackingComponentReplacer {
         if (curId == null) {
             return null;
         }
-        ReplaceMessagePart replacement = replaceByCustomId.getOrDefault(curId, null);
-        return replacement;
+        return replaceByCustomId.getOrDefault(curId, null);
     }
 
     private static String getCustomId(Component component) {
@@ -175,8 +174,10 @@ public class MessagePartComponentReplacer implements TrackingComponentReplacer {
         if (mediaGallery == null || contains == null) {
             return false;
         }
-        Predicate<MediaGalleryItem> matchFunc =
-                (item) -> item.getUrl() != null && item.getUrl().contains(contains);
+        Predicate<MediaGalleryItem> matchFunc = (item) -> {
+            item.getUrl();
+            return item.getUrl().contains(contains);
+        };
         return mediaGallery.getItems().stream().anyMatch(matchFunc);
     }
 

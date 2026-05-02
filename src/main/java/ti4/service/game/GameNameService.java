@@ -11,13 +11,13 @@ import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import ti4.game.persistence.GameManager;
 import ti4.helpers.Constants;
-import ti4.map.persistence.GameManager;
 
 @UtilityClass
 public class GameNameService {
 
-    @NotNull
+    @Nullable
     public static String getGameName(SlashCommandInteractionEvent event) {
         OptionMapping gameNameOption = event.getOption(Constants.GAME_NAME);
         if (gameNameOption != null) {
@@ -33,11 +33,12 @@ public class GameNameService {
         return getGameNameFromChannel(channel);
     }
 
+    @Nullable
     public static String getGameNameFromChannel(Interaction event) {
         return getGameNameFromChannel(event.getChannel());
     }
 
-    @NotNull
+    @Nullable
     public static String getGameNameFromChannel(@NotNull Channel channel) {
         String gameName = getGameNameFromChannelName(channel.getName());
         if (GameManager.isValid(gameName)) {
@@ -47,7 +48,10 @@ public class GameNameService {
             IThreadContainerUnion parentChannel = ((ThreadChannel) channel).getParentChannel();
             gameName = getGameNameFromChannelName(parentChannel.getName());
         }
-        return gameName;
+        if (GameManager.isValid(gameName)) {
+            return gameName;
+        }
+        return null;
     }
 
     private static String getGameNameFromChannelName(String channelName) {

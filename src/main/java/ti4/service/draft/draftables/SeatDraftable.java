@@ -7,12 +7,12 @@ import lombok.Getter;
 import lombok.Setter;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
+import ti4.game.Game;
+import ti4.game.Player;
 import ti4.helpers.MapTemplateHelper;
 import ti4.helpers.settingsFramework.menus.DraftSystemSettings;
 import ti4.helpers.settingsFramework.menus.SettingsMenu;
 import ti4.image.Mapper;
-import ti4.map.Game;
-import ti4.map.Player;
 import ti4.model.MapTemplateModel;
 import ti4.service.draft.DraftChoice;
 import ti4.service.draft.DraftManager;
@@ -132,7 +132,7 @@ public class SeatDraftable extends SinglePickDraftable {
             throw new IllegalStateException("Player " + playerUserId + " has not picked a seat");
         }
 
-        String seat = pState.getPicks().get(TYPE).getFirst().getChoiceKey();
+        String seat = pState.getPicks().get(TYPE).getFirst().choiceKey();
         Integer seatNum = getSeatNumberFromChoiceKey(seat);
         if (seatNum == null) {
             throw new IllegalStateException("Player " + playerUserId + " has an invalid seat choice key: " + seat);
