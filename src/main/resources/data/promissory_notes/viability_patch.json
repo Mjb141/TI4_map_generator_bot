@@ -48,5 +48,15 @@
         "source": "viability_patch",
         "homebrewReplacesID": "fires",
         "text": "ACTION: Remove 1 token from the Muaat player's fleet pool and return it to their reinforcements. Place this card in your play area and gain your War Sun technology. The next time you produce a War Sun, reduce its cost by 2 resources. Then, return this card to the Muaat player."
+    },
+    {
+        "alias": "viability_raisethestandard",
+        "name": "Raise the Standard",
+        "faction": "bastion",
+        "playArea": false,
+        "attachment": false,
+        "source": "viability_patch",
+        "homebrewReplacesID": "raisethestandard",
+        "text": "At the end of a combat: Galvanize 2 of your units that participated. Then, return this card to the Last Bastion player."
     }
 ]
