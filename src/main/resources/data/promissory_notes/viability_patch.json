@@ -38,5 +38,15 @@
         "source": "viability_patch",
         "homebrewReplacesID": "gift",
         "text": "During this round, after any player activates one of your systems you may immediately perform 1 tactical action. If you do, return this card to the Naalu player."
+    },
+    {
+        "alias": "viability_fires",
+        "name": "Fires of the Gashlai",
+        "faction": "muaat",
+        "playArea": true,
+        "attachment": false,
+        "source": "viability_patch",
+        "homebrewReplacesID": "fires",
+        "text": "ACTION: Remove 1 token from the Muaat player's fleet pool and return it to their reinforcements. Place this card in your play area and gain your War Sun technology. The next time you produce a War Sun, reduce its cost by 2 resources. Then, return this card to the Muaat player."
     }
 ]
