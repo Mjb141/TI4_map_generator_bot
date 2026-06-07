@@ -4,17 +4,19 @@ import java.text.DecimalFormat;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import ti4.contest.replay.buttons.CombatDoubleOrBustButtonIds;
+import ti4.contest.replay.buttons.CombatSideBetButtonIds;
+import ti4.contest.replay.core.CombatContestSettings;
 import ti4.contest.replay.service.CombatReplayService;
 import ti4.discord.interactions.listeners.context.ButtonContext;
 import ti4.discord.interactions.routing.AnnotationHandler;
 import ti4.discord.interactions.routing.ButtonHandler;
+import ti4.discord.interactions.routing.HandlerRegistry;
 import ti4.executors.ExecutionLockType;
 import ti4.executors.ExecutorServiceManager;
 import ti4.game.Game;
@@ -30,6 +32,7 @@ import ti4.helpers.DateTimeHelper;
 import ti4.helpers.DisplayType;
 import ti4.helpers.SearchGameHelper;
 import ti4.helpers.StatusHelper;
+import ti4.helpers.TimedRunnable;
 import ti4.logging.BotLogger;
 import ti4.logging.LogOrigin;
 import ti4.logging.RollbarManager;
@@ -44,27 +47,22 @@ import ti4.spring.context.SpringContext;
 @UtilityClass
 public class ButtonProcessor {
 
-    private static final Map<String, Consumer<ButtonContext>> knownButtons =
-            AnnotationHandler.findKnownHandlers(ButtonContext.class, ButtonHandler.class);
+    private static final HandlerRegistry<ButtonContext> registry =
+            AnnotationHandler.buildHandlerRegistry(ButtonContext.class, ButtonHandler.class);
     private static final ButtonRuntimeWarningService runtimeWarningService = new ButtonRuntimeWarningService();
 
     public static void checkButtonHandlersSetup() {
-        if (knownButtons.isEmpty()) {
+        if (registry.getSize() == 0) {
             throw new IllegalStateException("No button handlers were registered");
         }
     }
 
     public static void queue(ButtonInteractionEvent event) {
-        var buttonContext = new ButtonContext(event);
-        if (!buttonContext.isValid()) return;
-
         String gameName = GameNameService.getGameNameFromChannel(event);
+        String componentId = event.getButton().getCustomId();
+        ExecutionLockType lockType = registry.isSave(componentId) ? ExecutionLockType.WRITE : ExecutionLockType.READ;
         ExecutorServiceManager.runAsyncWithLock(
-                eventToString(event, gameName),
-                gameName,
-                event.getMessageChannel(),
-                () -> process(buttonContext, event),
-                buttonContext.isShouldSave() ? ExecutionLockType.WRITE : ExecutionLockType.READ);
+                eventToString(event, gameName), gameName, event.getMessageChannel(), () -> process(event), lockType);
     }
 
     private static String eventToString(ButtonInteractionEvent event, String gameName) {
@@ -74,30 +72,42 @@ public class ButtonProcessor {
                 + ButtonHelper.getButtonRepresentation(event.getButton());
     }
 
-    private static void process(ButtonContext context, ButtonInteractionEvent event) {
+    private static void process(ButtonInteractionEvent event) {
         long processStartTime = System.currentTimeMillis();
+
+        ButtonContext context = new ButtonContext(event);
+        if (!context.isValid()) return;
+
+        long beforeTime = System.currentTimeMillis();
+        log(event);
+        long logRuntime = System.currentTimeMillis() - beforeTime;
+
         long resolveRuntime = 0;
         long saveRuntime = 0;
-
-        log(event);
         try {
-            CombatReplayService combatReplayService = SpringContext.getBean(CombatReplayService.class);
-            CombatReplayService.PreInteractionSnapshot preInteractionSnapshot =
-                    combatReplayService.capturePreInteractionSnapshot(context.getGame());
-            combatReplayService.setPreInteractionSnapshot(preInteractionSnapshot);
+            CombatReplayService combatReplayService =
+                    CombatContestSettings.isEnabledStatic() ? SpringContext.getBean(CombatReplayService.class) : null;
+            if (combatReplayService != null) {
+                CombatReplayService.PreInteractionSnapshot preInteractionSnapshot =
+                        combatReplayService.capturePreInteractionSnapshot(context.getGame());
+                combatReplayService.setPreInteractionSnapshot(preInteractionSnapshot);
+            }
             try {
-                long beforeTime = System.currentTimeMillis();
+                beforeTime = System.currentTimeMillis();
                 resolveButtonInteractionEvent(context);
                 resolveRuntime = System.currentTimeMillis() - beforeTime;
 
                 beforeTime = System.currentTimeMillis();
                 context.save();
-                if (context.getGame() != null) {
+                saveRuntime = System.currentTimeMillis() - beforeTime;
+
+                if (combatReplayService != null && context.getGame() != null) {
                     combatReplayService.onButtonInteractionSettled(context.getGame(), context.getPlayer(), event);
                 }
-                saveRuntime = System.currentTimeMillis() - beforeTime;
             } finally {
-                combatReplayService.clearPreInteractionSnapshot();
+                if (combatReplayService != null) {
+                    combatReplayService.clearPreInteractionSnapshot();
+                }
             }
         } catch (Exception e) {
             BotLogger.error(new LogOrigin(event, context), "Something went wrong with button interaction", e);
@@ -111,49 +121,39 @@ public class ButtonProcessor {
                 processStartTime,
                 System.currentTimeMillis(),
                 contextCreationRuntime,
+                logRuntime,
                 resolveRuntime,
                 saveRuntime);
     }
 
     private static void log(ButtonInteractionEvent event) {
-        BotLogger.logButton(event);
+        // TODO: These timings are temporary to track down any spikes...
+        int warningThresholdSeconds = 1;
+        new TimedRunnable("ButtonProcessor BotLogger log", warningThresholdSeconds, () -> BotLogger.logButton(event))
+                .run();
 
-        RollbarManager.putInteractionMetadata("button", event);
-        RollbarManager.put("button_id", event.getButton().getCustomId());
-        RollbarManager.put("game_name", GameNameService.getGameNameFromChannel(event));
+        new TimedRunnable("ButtonProcessor Rollbar setup", warningThresholdSeconds, () -> {
+                    RollbarManager.putInteractionMetadata("button", event);
+                    RollbarManager.put("button_id", event.getButton().getCustomId());
+                    RollbarManager.put("game_name", GameNameService.getGameNameFromChannel(event));
+                })
+                .run();
 
-        User user = event.getUser();
-        UserSettings userSettings = UserSettingsManager.get(user.getId());
-        int currentHourUTC = ZonedDateTime.now(ZoneId.of("UTC")).getHour();
-        userSettings.addActiveHour(currentHourUTC);
-        UserSettingsManager.save(userSettings);
+        new TimedRunnable("ButtonProcessor user settings save", warningThresholdSeconds, () -> {
+                    User user = event.getUser();
+                    UserSettings userSettings = UserSettingsManager.get(user.getId());
+                    int currentHourUTC = ZonedDateTime.now(ZoneId.of("UTC")).getHour();
+                    userSettings.addActiveHour(currentHourUTC);
+                    UserSettingsManager.save(userSettings);
+                })
+                .run();
     }
 
-    private static boolean handleKnownButtons(ButtonContext context) {
-        String buttonID = context.getButtonID();
-        // Check for exact match first
-        if (knownButtons.containsKey(buttonID)) {
-            RollbarManager.put("button_handler_id", buttonID);
-            knownButtons.get(buttonID).accept(context);
-            return true;
-        }
-
-        // Then check for prefix match
-        String longestPrefixMatch = null;
-        for (String key : knownButtons.keySet()) {
-            if (buttonID.startsWith(key)) {
-                if (longestPrefixMatch == null || key.length() > longestPrefixMatch.length()) {
-                    longestPrefixMatch = key;
-                }
-            }
-        }
-
-        if (longestPrefixMatch != null) {
-            RollbarManager.put("button_handler_id", longestPrefixMatch);
-            knownButtons.get(longestPrefixMatch).accept(context);
-            return true;
-        }
-        return false;
+    private static boolean isCombatReplayButton(String buttonID) {
+        return buttonID != null
+                && (buttonID.startsWith(CombatSideBetButtonIds.PREFIX)
+                        || buttonID.startsWith(CombatDoubleOrBustButtonIds.PREFIX)
+                        || buttonID.startsWith("combatReplayDebug_"));
     }
 
     private static void resolveButtonInteractionEvent(ButtonContext context) {
@@ -165,8 +165,11 @@ public class ButtonProcessor {
         MessageChannel privateChannel = context.getPrivateChannel();
         MessageChannel mainGameChannel = context.getMainGameChannel();
 
+        // Skip combat replay buttons when the feature is disabled
+        if (!CombatContestSettings.isEnabledStatic() && isCombatReplayButton(buttonID)) return;
+
         // Check the list of ButtonHandlers first
-        if (handleKnownButtons(context)) return;
+        if (registry.handle(buttonID, context)) return;
 
         // TODO Convert all else..if..startsWith to use @ButtonHandler
         if (false) {
@@ -425,7 +428,8 @@ public class ButtonProcessor {
                 + "\n> Total button presses: "
                 + runtimeWarningService.getRuntimeSubmissionCount()
                 + "\n> Threshold misses: "
-                + decimalFormatter.format(thresholdMissPercent) + "%"
+                + decimalFormatter.format(thresholdMissPercent) + "% ("
+                + runtimeWarningService.getRuntimeThresholdMissCount() + ")"
                 + "\n> Average preprocessing time: "
                 + decimalFormatter.format(runtimeWarningService.getAveragePreprocessingTime()) + "ms"
                 + "\n> Average processing time: "

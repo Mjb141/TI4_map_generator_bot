@@ -41,7 +41,6 @@ import ti4.service.emoji.MiscEmojis;
 import ti4.service.emoji.UnitEmojis;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.leader.UnlockLeaderService;
-import ti4.service.statistics.round.RoundStatsTracker;
 import ti4.service.unit.AddUnitService;
 import ti4.service.unit.CheckUnitContainmentService;
 
@@ -286,9 +285,6 @@ public class AddPlanetService {
             MessageHelper.sendMessageToChannelWithButtons(
                     player.getCorrectChannel(), msg10, ButtonHelper.getScavengerExosButtons(player));
         }
-        if (!setup && player.isRealPlayer()) {
-            RoundStatsTracker.recordPlanetTaken(game, player, alreadyOwned);
-        }
         if (!alreadyOwned
                 && game.isMinorFactionsMode()
                 && player.isRealPlayer()
@@ -373,7 +369,7 @@ public class AddPlanetService {
         if (unitHolder.getTokenList().contains("token_relictoken.png") && player.isRealPlayer()) {
             unitHolder.removeToken("token_relictoken.png");
             if (!alreadyOwned) {
-                Button draw = Buttons.green(player.getFinsFactionCheckerPrefix() + "drawRelic", "Draw A Relic");
+                Button draw = Buttons.green(player.factionButtonChecker() + "drawRelic", "Draw A Relic");
                 String message = player.getRepresentation()
                         + " has gained control of a planet which allows them to draw a relic!\nUse the button __after__ you have resolved __all__ ground combats.";
                 MessageHelper.sendMessageToChannelWithButton(player.getCorrectChannel(), message, draw);
@@ -485,7 +481,7 @@ public class AddPlanetService {
             String planetStr = unitHolder.getName();
             String planetName = Mapper.getPlanet(planetStr).getName();
             liberateButtons.add(Buttons.green(
-                    player.getFinsFactionCheckerPrefix() + "liberate_" + planetStr,
+                    player.factionButtonChecker() + "liberate_" + planetStr,
                     "Liberate " + planetName,
                     FactionEmojis.Bastion));
             MessageHelper.sendMessageToChannelWithButtons(
@@ -584,7 +580,8 @@ public class AddPlanetService {
                         buttons);
             }
         }
-        if (IsPlayerElectedService.isPlayerElected(game, player, "minister_exploration")) {
+        if (!unitHolder.isSpaceStation()
+                && IsPlayerElectedService.isPlayerElected(game, player, "minister_exploration")) {
             String fac = player.getFactionEmoji();
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),

@@ -72,6 +72,10 @@ public abstract class SettingsMenu {
         return Collections.emptyList();
     }
 
+    boolean showInParentSummary() {
+        return true;
+    }
+
     List<Button> specialButtons() {
         return Collections.emptyList();
     }
@@ -118,15 +122,17 @@ public abstract class SettingsMenu {
         }
         if (!enabledSettings().isEmpty()) sb.append('\n'); // extra line for formatting
 
-        if (!categories().isEmpty()) {
+        List<SettingsMenu> summarized =
+                categories().stream().filter(SettingsMenu::showInParentSummary).toList();
+        if (!summarized.isEmpty()) {
             List<String> catStrings = new ArrayList<>();
-            for (SettingsMenu cat : categories()) {
+            for (SettingsMenu cat : summarized) {
                 catStrings.add(cat.shortSummaryString(false));
             }
             String catStr = String.join("\n\n", catStrings);
             if (sb.length() + catStr.length() > 1999) {
                 List<String> shorterCatStrings = new ArrayList<>();
-                for (SettingsMenu cat : categories()) {
+                for (SettingsMenu cat : summarized) {
                     shorterCatStrings.add(cat.shortSummaryString(true));
                 }
                 catStr = String.join("\n\n", shorterCatStrings);
@@ -423,7 +429,7 @@ public abstract class SettingsMenu {
             }
             List<List<Button>> paginated = ListUtils.partition(allButtons, allottedSpace - 2);
             int maxPage = paginated.size() - 1;
-            pageNum = Math.max(0, Math.min(pageNum, maxPage));
+            pageNum = Math.clamp(pageNum, 0, maxPage);
 
             String navString = menuNav + "_" + navId() + "_";
             List<Button> buttonsToUse = new ArrayList<>();

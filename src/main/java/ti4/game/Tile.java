@@ -630,17 +630,16 @@ public class Tile {
             if (token.contains("beta") || token.contains("sigma_weirdway")) whs2.add(WormholeModel.Wormhole.BETA);
             if (token.contains("gamma")) whs2.add(WormholeModel.Wormhole.GAMMA);
         }
-        String ghostFlagshipColor = null;
+        String ghostFlagshipColor;
         for (Player p : game.getPlayers().values()) {
             if (p.ownsUnit("ghost_flagship")
                     || p.ownsUnit("sigma_creuss_flagship_1")
                     || p.ownsUnit("sigma_creuss_flagship_2")) {
                 ghostFlagshipColor = p.getColor();
-                break;
+                if (getSpaceUnitHolder().getUnitCount(UnitType.Flagship, ghostFlagshipColor) > 0) {
+                    whs2.add(WormholeModel.Wormhole.DELTA);
+                }
             }
-        }
-        if (getSpaceUnitHolder().getUnitCount(UnitType.Flagship, ghostFlagshipColor) > 0) {
-            whs2.add(WormholeModel.Wormhole.DELTA);
         }
         return whs2;
     }

@@ -24,6 +24,7 @@ import ti4.discord.interactions.commands.event.EventCommand;
 import ti4.discord.interactions.commands.explore.ExploreCommand;
 import ti4.discord.interactions.commands.fow.FOWCommand;
 import ti4.discord.interactions.commands.franken.FrankenCommand;
+import ti4.discord.interactions.commands.frankendraz.FrankenDrazCommand;
 import ti4.discord.interactions.commands.game.GameCommand;
 import ti4.discord.interactions.commands.help.HelpCommand;
 import ti4.discord.interactions.commands.installation.InstallationCommand;
@@ -57,7 +58,6 @@ import ti4.discord.interactions.commands.tokens.RemoveTokenCommand;
 import ti4.discord.interactions.commands.transaction.TransactionCommand;
 import ti4.discord.interactions.commands.uncategorized.AllInfoCommand;
 import ti4.discord.interactions.commands.uncategorized.CardsInfoCommand;
-import ti4.discord.interactions.commands.uncategorized.PostLazaxSeason1PublicCommand;
 import ti4.discord.interactions.commands.uncategorized.SelectionBoxDemoCommand;
 import ti4.discord.interactions.commands.uncategorized.ShowDistancesCommand;
 import ti4.discord.interactions.commands.uncategorized.ShowGameCommand;
@@ -125,6 +125,7 @@ public class SlashCommandManager {
                     new InstallationCommand(),
                     new MiltyCommand(),
                     new FrankenCommand(),
+                    new FrankenDrazCommand(),
                     new CaptureCommand(),
                     new GenericButtonCommand(),
                     new DiscordantStarsCommand(),
@@ -135,7 +136,6 @@ public class SlashCommandManager {
                     new BreakthroughCommand(),
                     new PlanetCommand(),
                     new SelectionBoxDemoCommand(),
-                    new PostLazaxSeason1PublicCommand(),
                     new UserCommand(),
                     new LazaxCommand(),
                     new TiglCommand(),

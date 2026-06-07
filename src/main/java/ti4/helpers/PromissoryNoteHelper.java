@@ -33,13 +33,9 @@ import ti4.service.unit.AddUnitService;
 @UtilityClass
 public class PromissoryNoteHelper {
 
-    private static final String PINNED_PN_INFO_MESSAGE_ID = "pinned_pn_info_message_id";
-
     public static void sendPromissoryNoteInfo(Game game, Player player, boolean longFormat) {
-        MessageHelper.sendMessageToPlayerCardsInfoThreadWithButtonsAndPin(
-                game,
-                player,
-                PINNED_PN_INFO_MESSAGE_ID,
+        MessageHelper.sendMessageToChannelWithButtons(
+                player.getCardsInfoThread(),
                 getPromissoryNoteCardInfo(game, player, longFormat, false),
                 getPNButtons(game, player));
     }
@@ -450,6 +446,7 @@ public class PromissoryNoteHelper {
         }
         if ("fires".equalsIgnoreCase(id)) {
             player.addTech("ws");
+            ButtonHelperCommanders.resolveNekroCommanderCheck(player, "ws", game);
             CommanderUnlockCheckService.checkPlayer(player, "mirveda");
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),
@@ -458,6 +455,7 @@ public class PromissoryNoteHelper {
         }
         if ("sigma_fires".equalsIgnoreCase(id)) {
             player.addTech("ws");
+            ButtonHelperCommanders.resolveNekroCommanderCheck(player, "ws", game);
             CommanderUnlockCheckService.checkPlayer(player, "mirveda");
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),
@@ -476,7 +474,7 @@ public class PromissoryNoteHelper {
                 String reducedMsg = owner.getRepresentationUnfogged() + " your _Trade Agreement_ was played.";
                 String reducedMsg2 = player.getRepresentationUnfogged()
                         + " you gained trade goods equal to the number of commodities the player had (your trade goods went from "
-                        + oldTGs + " trade good" + (oldTGs == 1 ? "" : "s") + " to -> " + (oldTGs + comms)
+                        + StringHelper.pluralize(oldTGs, "trade good") + " to -> " + (oldTGs + comms)
                         + " trade good" + (oldTGs + comms == 1 ? "" : "s")
                         + "). Please follow up with the player if this number seems off.";
                 player.setTg(oldTGs + comms);
@@ -490,7 +488,7 @@ public class PromissoryNoteHelper {
                         + owner.getRepresentationUnfogged() + ", taking their " + comms + " commodit"
                         + (comms == 1 ? "y" : "ies")
                         + " ("
-                        + oldTGs + " tg" + (oldTGs == 1 ? "" : "s") + " -> " + (oldTGs + comms) + "tg"
+                        + StringHelper.pluralize(oldTGs, "tg") + " -> " + (oldTGs + comms) + "tg"
                         + (oldTGs + comms == 1 ? "" : "s") + ").";
                 player.setTg(oldTGs + comms);
                 ButtonHelperFactionSpecific.resolveDarkPactCheck(game, owner, player, owner.getCommoditiesTotal());
@@ -544,7 +542,7 @@ public class PromissoryNoteHelper {
         }
         if (id.contains("rider")) {
             String riderName = "Keleres Rider";
-            String finsFactionCheckerPrefix = "FFCC_" + player.getFaction() + "_";
+            String finsFactionCheckerPrefix = player.factionButtonChecker();
 
             List<Button> riderButtons = AgendaHelper.getAgendaButtons(riderName, game, finsFactionCheckerPrefix);
             List<Button> afterButtons = AgendaHelper.getAfterButtons(game);
@@ -557,7 +555,7 @@ public class PromissoryNoteHelper {
         }
         if ("dspnedyn".equalsIgnoreCase(id)) {
             String riderName = "Edyn Rider";
-            String finsFactionCheckerPrefix = "FFCC_" + player.getFaction() + "_";
+            String finsFactionCheckerPrefix = player.factionButtonChecker();
 
             List<Button> riderButtons = AgendaHelper.getAgendaButtons(riderName, game, finsFactionCheckerPrefix);
             // List<Button> afterButtons = AgendaHelper.getAfterButtons(game);
@@ -570,7 +568,7 @@ public class PromissoryNoteHelper {
         }
         if ("dspnkyro".equalsIgnoreCase(id)) {
             String riderName = "Kyro Rider";
-            String finsFactionCheckerPrefix = "FFCC_" + player.getFaction() + "_";
+            String finsFactionCheckerPrefix = player.factionButtonChecker();
 
             List<Button> riderButtons = AgendaHelper.getAgendaButtons(riderName, game, finsFactionCheckerPrefix);
             // List<Button> afterButtons = AgendaHelper.getAfterButtons(game);
@@ -604,7 +602,7 @@ public class PromissoryNoteHelper {
         }
         if ("bmf".equalsIgnoreCase(id)) {
             if (fromHand) {
-                String finChecker = "";
+                String factionChecker = "";
                 String message = "Please choose the fragments you wish to purge. ";
                 List<Button> purgeFragButtons = new ArrayList<>();
                 int numToBeat = 2 - player.getUrf();
@@ -614,21 +612,21 @@ public class PromissoryNoteHelper {
                 if (player.getCrf() > numToBeat) {
                     for (int x = numToBeat + 1; (x < player.getCrf() + 1 && x < 4); x++) {
                         Button transact =
-                                Buttons.blue(finChecker + "purge_Frags_CRF_" + x, "Cultural Fragments (" + x + ")");
+                                Buttons.blue(factionChecker + "purge_Frags_CRF_" + x, "Cultural Fragments (" + x + ")");
                         purgeFragButtons.add(transact);
                     }
                 }
                 if (player.getIrf() > numToBeat) {
                     for (int x = numToBeat + 1; (x < player.getIrf() + 1 && x < 4); x++) {
-                        Button transact =
-                                Buttons.green(finChecker + "purge_Frags_IRF_" + x, "Industrial Fragments (" + x + ")");
+                        Button transact = Buttons.green(
+                                factionChecker + "purge_Frags_IRF_" + x, "Industrial Fragments (" + x + ")");
                         purgeFragButtons.add(transact);
                     }
                 }
                 if (player.getHrf() > numToBeat) {
                     for (int x = numToBeat + 1; (x < player.getHrf() + 1 && x < 4); x++) {
                         Button transact =
-                                Buttons.red(finChecker + "purge_Frags_HRF_" + x, "Hazardous Fragments (" + x + ")");
+                                Buttons.red(factionChecker + "purge_Frags_HRF_" + x, "Hazardous Fragments (" + x + ")");
                         purgeFragButtons.add(transact);
                     }
                 }
@@ -636,13 +634,13 @@ public class PromissoryNoteHelper {
                 if (player.getUrf() > 0) {
                     for (int x = 1; x < player.getUrf() + 1; x++) {
                         Button transact =
-                                Buttons.gray(finChecker + "purge_Frags_URF_" + x, "Frontier Fragments (" + x + ")");
+                                Buttons.gray(factionChecker + "purge_Frags_URF_" + x, "Frontier Fragments (" + x + ")");
                         purgeFragButtons.add(transact);
                     }
                 }
-                Button transact2 = Buttons.red(finChecker + "drawRelicFromFrag", "Finish Purging and Draw Relic");
+                Button transact2 = Buttons.red(factionChecker + "drawRelicFromFrag", "Finish Purging and Draw Relic");
                 if (player.hasAbility("a_new_edifice")) {
-                    transact2 = Buttons.red(finChecker + "drawRelicFromFrag", "Finish Purging and Explore");
+                    transact2 = Buttons.red(factionChecker + "drawRelicFromFrag", "Finish Purging and Explore");
                 }
                 purgeFragButtons.add(transact2);
                 MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message, purgeFragButtons);

@@ -242,6 +242,29 @@ public enum LeaderEmojis implements TI4Emoji {
     XinCommander,
     XinHero,
 
+    // Beans
+    DreamAgent,
+    DreamCommander,
+    DreamHero,
+    CrystellumAgent,
+    CrystellumCommander,
+    CrystellumHero,
+    AshenAgent,
+    AshenCommander,
+    AshenHero,
+    IronAgent,
+    IronCommander,
+    IronHero,
+    TaAgent,
+    TaCommander,
+    TaHero,
+    NetrunnersAgent,
+    NetrunnersCommander,
+    NetrunnersHero,
+    NatauAgent,
+    NatauCommander,
+    NatauHero,
+
     // Generic
     Agent,
     Commander,
@@ -291,6 +314,9 @@ public enum LeaderEmojis implements TI4Emoji {
             case "poisonhero" -> NaaluHero;
             case "voicehero" -> XxchaHero;
             case "witchinghero" -> KeleresHeroOdlynn;
+
+            // Franken
+            case "mahactcommander_y" -> MahactCommander;
 
             default -> TI4Emoji.getRandomGoodDog(leader.toLowerCase());
         };

@@ -1,8 +1,9 @@
 package ti4.message;
 
-import static ti4.helpers.discord.DiscordHelper.isDiscordServerError;
-import static ti4.helpers.discord.DiscordHelper.isIgnorableError;
-import static ti4.helpers.discord.DiscordHelper.isUnknownMessageError;
+import static ti4.helpers.discord.DiscordErrorUtility.isDiscordServerError;
+import static ti4.helpers.discord.DiscordErrorUtility.isIgnorableError;
+import static ti4.helpers.discord.DiscordErrorUtility.isUnknownEmojiError;
+import static ti4.helpers.discord.DiscordErrorUtility.isUnknownMessageError;
 
 import java.io.File;
 import java.net.SocketTimeoutException;
@@ -203,13 +204,14 @@ public class MessageHelper {
 
     private static void addFactionReactToMessage(Game game, Player player, Message message) {
         Emoji reactionEmoji = Helper.getPlayerReactionEmoji(game, player, message);
-        message.addReaction(reactionEmoji).queue(null, error -> handleFailedReaction(game, player, message, error));
-        String messageId = message.getId();
-        GameMessageManager.addReaction(game.getName(), player.getFaction(), messageId);
+        message.addReaction(reactionEmoji)
+                .queue(
+                        _ -> GameMessageManager.addReaction(game.getName(), player.getFaction(), message.getId()),
+                        error -> handleFailedReaction(game, player, message, error));
     }
 
     private static void handleFailedReaction(Game game, Player player, Message message, Throwable error) {
-        if (isUnknownMessageError(error)) {
+        if (isUnknownMessageError(error) || isUnknownEmojiError(error)) {
             return;
         }
         if (isDiscordServerError(error)) {
@@ -248,7 +250,8 @@ public class MessageHelper {
         Consumer<Message> addFactionReact = (message) -> {
             if (saboable) {
                 GameMessageManager.add(
-                        game.getName(), message.getId(), GameMessageType.ACTION_CARD, game.getLastModifiedDate());
+                        game.getName(),
+                        new GameMessage(message.getId(), GameMessageType.ACTION_CARD, game.getLastModifiedDate()));
             }
             addFactionReactToMessage(game, player, message);
             if (!saboable) {
@@ -263,6 +266,17 @@ public class MessageHelper {
             ReactionService.progressGameIfAllPlayersHaveReacted(message.getId(), game);
         };
         splitAndSentWithAction(messageText, channel, addFactionReact, embeds, buttons);
+    }
+
+    public static void sendSCFollowMessageToChannel(MessageChannel channel, String messageText, Game game, int scNum) {
+        Consumer<Message> addFactionReact = (message) -> GameMessageManager.add(
+                game.getName(),
+                new GameMessage(
+                        message.getId(),
+                        GameMessageType.STRATEGY_FOLLOW,
+                        game.getLastModifiedDate(),
+                        game.getRound() + "_" + scNum));
+        splitAndSentWithAction(messageText, channel, addFactionReact);
     }
 
     public static void sendMessageToChannelWithPersistentReacts(
@@ -289,9 +303,8 @@ public class MessageHelper {
                         case AGENDA_WHEN -> {
                             String oldMessageId = GameMessageManager.replace(
                                     game.getName(),
-                                    message.getId(),
-                                    GameMessageType.AGENDA_WHEN,
-                                    game.getLastModifiedDate());
+                                    new GameMessage(
+                                            message.getId(), GameMessageType.AGENDA_WHEN, game.getLastModifiedDate()));
                             if (oldMessageId != null) {
                                 game.getMainGameChannel()
                                         .deleteMessageById(oldMessageId)
@@ -302,9 +315,8 @@ public class MessageHelper {
                         case AGENDA_AFTER -> {
                             String oldMessageId = GameMessageManager.replace(
                                     game.getName(),
-                                    message.getId(),
-                                    GameMessageType.AGENDA_AFTER,
-                                    game.getLastModifiedDate());
+                                    new GameMessage(
+                                            message.getId(), GameMessageType.AGENDA_AFTER, game.getLastModifiedDate()));
                             if (oldMessageId != null) {
                                 game.getMainGameChannel()
                                         .deleteMessageById(oldMessageId)
@@ -653,14 +665,14 @@ public class MessageHelper {
         if (text.contains("Use buttons to do your turn")
                 || text.contains("Use buttons to end turn")
                 || text.contains("Use the buttons to end turn")) {
-            String old = GameMessageManager.replace(gameName, id, GameMessageType.TURN, date);
+            String old = GameMessageManager.replace(gameName, new GameMessage(id, GameMessageType.TURN, date));
             if (old != null) {
                 message.getChannel().deleteMessageById(old).queue(Consumers.nop(), BotLogger::catchRestError);
             }
         }
 
         if (text.contains(VisionariaSelectService.initialButtonHeader())) {
-            GameMessageManager.replace(gameName, id, GameMessageType.VISIONARIA, date);
+            GameMessageManager.replace(gameName, new GameMessage(id, GameMessageType.VISIONARIA, date));
         }
     }
 
@@ -727,7 +739,7 @@ public class MessageHelper {
         sb.append(channel.getAsMention()).append("\nRestAction Failure within MessageHelper.splitAndSentWithAction: ");
         sb.append(errorHeader);
         sb.append("\n```").append(error.getMessage()).append("```");
-        if (messageCreateData != null) {
+        if (messageCreateData != null && !isDiscordServerError(error)) {
             String messageJSON = messageCreateData.toData().toPrettyString();
             sb.append("\nMessageContent: ").append(messageCreateData.getContent());
             int maxJSONLength = 1500;
@@ -865,15 +877,7 @@ public class MessageHelper {
             return;
         }
 
-        ThreadChannel threadChannel = player.getCardsInfoThread();
-        if (threadChannel == null) {
-            return;
-        }
-
-        splitAndSentWithAction(
-                messageText,
-                threadChannel,
-                msg -> rotatePinnedCardsInfoMessage(game, threadChannel, storedValueKeyPrefix, msg));
+        sendMessageToPlayerCardsInfoThread(player, messageText);
     }
 
     public static void sendMessageToPlayerCardsInfoThreadWithButtonsAndPin(
@@ -891,37 +895,7 @@ public class MessageHelper {
             return;
         }
 
-        splitAndSentWithAction(
-                messageText,
-                threadChannel,
-                msg -> rotatePinnedCardsInfoMessage(game, threadChannel, storedValueKeyPrefix, msg),
-                null,
-                buttons);
-    }
-
-    private static void rotatePinnedCardsInfoMessage(
-            @NotNull Game game,
-            @NotNull ThreadChannel threadChannel,
-            @NotNull String storedValueKeyPrefix,
-            @NotNull Message msg) {
-        String storedValueKey = storedValueKeyPrefix + "_" + threadChannel.getId();
-        String previousMessageId = game.getStoredValue(storedValueKey);
-
-        if (StringUtils.isNotBlank(previousMessageId) && !previousMessageId.equals(msg.getId())) {
-            threadChannel
-                    .retrieveMessageById(previousMessageId)
-                    .queue(
-                            previousMessage ->
-                                    previousMessage.unpin().queue(Consumers.nop(), BotLogger::catchRestError),
-                            BotLogger::catchRestError);
-        }
-
-        pinCardsInfoMessage(game, storedValueKey, msg);
-    }
-
-    private static void pinCardsInfoMessage(@NotNull Game game, @NotNull String storedValueKey, @NotNull Message msg) {
-        game.setStoredValue(storedValueKey, msg.getId());
-        msg.pin().queue(Consumers.nop(), BotLogger::catchRestError);
+        sendMessageToChannelWithButtons(threadChannel, messageText, buttons);
     }
 
     /**

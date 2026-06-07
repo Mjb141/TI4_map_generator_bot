@@ -1,23 +1,6 @@
 package ti4.game.persistence;
 
-import static ti4.game.persistence.GamePersistenceKeys.ENDGAMEINFO;
-import static ti4.game.persistence.GamePersistenceKeys.ENDMAPINFO;
-import static ti4.game.persistence.GamePersistenceKeys.ENDPLAYER;
-import static ti4.game.persistence.GamePersistenceKeys.ENDPLAYERINFO;
-import static ti4.game.persistence.GamePersistenceKeys.ENDTILE;
-import static ti4.game.persistence.GamePersistenceKeys.ENDTOKENS;
-import static ti4.game.persistence.GamePersistenceKeys.ENDUNITHOLDER;
-import static ti4.game.persistence.GamePersistenceKeys.ENDUNITS;
-import static ti4.game.persistence.GamePersistenceKeys.GAMEINFO;
-import static ti4.game.persistence.GamePersistenceKeys.MAPINFO;
-import static ti4.game.persistence.GamePersistenceKeys.PLANET_ENDTOKENS;
-import static ti4.game.persistence.GamePersistenceKeys.PLANET_TOKENS;
-import static ti4.game.persistence.GamePersistenceKeys.PLAYER;
-import static ti4.game.persistence.GamePersistenceKeys.PLAYERINFO;
-import static ti4.game.persistence.GamePersistenceKeys.TILE;
-import static ti4.game.persistence.GamePersistenceKeys.TOKENS;
-import static ti4.game.persistence.GamePersistenceKeys.UNITHOLDER;
-import static ti4.game.persistence.GamePersistenceKeys.UNITS;
+import static ti4.game.persistence.GamePersistenceKeys.*;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -51,7 +34,9 @@ import ti4.helpers.Storage;
 import ti4.helpers.StringHelper;
 import ti4.helpers.Units;
 import ti4.helpers.Units.UnitKey;
+import ti4.helpers.settingsFramework.menus.BaseGameMiniMiltySettings;
 import ti4.helpers.settingsFramework.menus.DraftSystemSettings;
+import ti4.helpers.settingsFramework.menus.FrankenSettings;
 import ti4.helpers.settingsFramework.menus.MiltySettings;
 import ti4.image.Mapper;
 import ti4.json.JsonMapperManager;
@@ -66,7 +51,6 @@ import ti4.service.draft.DraftSaveService;
 import ti4.service.map.CustomHyperlaneService;
 import ti4.service.milty.MiltyDraftManager;
 import ti4.service.option.FOWOptionService.FOWOption;
-import ti4.service.statistics.round.RoundStatsTracker;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.module.SimpleModule;
 
@@ -111,7 +95,6 @@ class GameSaveService {
         }
 
         int undoIndex = GameUndoService.createUndoCopy(game.getName());
-        RoundStatsTracker.refreshOnSave(game, undoIndex);
         return true;
     }
 
@@ -280,20 +263,8 @@ class GameSaveService {
         writer.write(Constants.THALNOS_UNITS + " " + sb16);
         writer.write(System.lineSeparator());
 
-        Map<String, Integer> slashCommands = game.getAllSlashCommandsUsed();
-        StringBuilder sb10 = new StringBuilder();
-        for (Map.Entry<String, Integer> entry : slashCommands.entrySet()) {
-            sb10.append(entry.getKey()).append(",").append(entry.getValue()).append(":");
-        }
-        writer.write(Constants.SLASH_COMMAND_STRING + " " + sb10);
-        writer.write(System.lineSeparator());
-
-        Map<String, Integer> acSabod = game.getAllActionCardsSabod();
-        StringBuilder sb11 = new StringBuilder();
-        for (Map.Entry<String, Integer> entry : acSabod.entrySet()) {
-            sb11.append(entry.getKey()).append(",").append(entry.getValue()).append(":");
-        }
-        writer.write(Constants.ACS_SABOD + " " + sb11);
+        String gameStats = mapper.writeValueAsString(game.getGameStats());
+        writer.write(Constants.GAME_STATS + " " + gameStats);
         writer.write(System.lineSeparator());
 
         String displacedUnits = mapper.writeValueAsString(game.getTacticalActionDisplacement());
@@ -433,8 +404,6 @@ class GameSaveService {
         writer.write(Constants.ROUND + " " + game.getRound());
         writer.write(System.lineSeparator());
         writer.write(Constants.BUTTON_PRESS_COUNT + " " + game.getButtonPressCount());
-        writer.write(System.lineSeparator());
-        writer.write(Constants.SLASH_COMMAND_COUNT + " " + game.getSlashCommandsRunCount());
         writer.write(System.lineSeparator());
         writer.write(Constants.GAME_CUSTOM_NAME + " " + game.getCustomName());
         writer.write(System.lineSeparator());
@@ -583,6 +552,8 @@ class GameSaveService {
         writer.write(System.lineSeparator());
         writer.write(Constants.WILD_WILD_GALAXY_MODE + " " + game.isWildWildGalaxyMode());
         writer.write(System.lineSeparator());
+        writer.write(Constants.FEAST_OR_FAMINE_MODE + " " + game.isFeastOrFamineMode());
+        writer.write(System.lineSeparator());
         writer.write(Constants.COSMIC_PHENOMENAE_MODE + " " + game.isCosmicPhenomenaeMode());
         writer.write(System.lineSeparator());
         writer.write(Constants.MERCENARIES_FOR_HIRE_MODE + " " + game.isMercenariesForHireMode());
@@ -594,6 +565,8 @@ class GameSaveService {
         writer.write(Constants.VEILED_HEART_MODE + " " + game.isVeiledHeartMode());
         writer.write(System.lineSeparator());
         writer.write(Constants.LIMITED_WHISPERS_MODE + " " + game.isLimitedWhispersMode());
+        writer.write(System.lineSeparator());
+        writer.write(Constants.WHISPERS_DISABLED + " " + game.isWhispersDisabled());
         writer.write(System.lineSeparator());
         writer.write(Constants.AGE_OF_COMMERCE_MODE + " " + game.isAgeOfCommerceMode());
         writer.write(System.lineSeparator());
@@ -699,6 +672,24 @@ class GameSaveService {
         } else if (game.getDraftSystemSettingsJson() != null) {
             // default to the already stored value, if we failed to read it previously
             writer.write(Constants.DRAFT_SYSTEM_SETTINGS + " " + game.getDraftSystemSettingsJson());
+            writer.write(System.lineSeparator());
+        }
+
+        FrankenSettings frankenSettings = game.getFrankenSettingsUnsafe();
+        if (frankenSettings != null) {
+            writer.write(Constants.FRANKEN_DRAFT_SETTINGS + " " + frankenSettings.json());
+            writer.write(System.lineSeparator());
+        } else if (game.getFrankenSettingsJson() != null) {
+            writer.write(Constants.FRANKEN_DRAFT_SETTINGS + " " + game.getFrankenSettingsJson());
+            writer.write(System.lineSeparator());
+        }
+
+        BaseGameMiniMiltySettings baseGameMiniMiltySettings = game.getBaseGameMiniMiltySettingsUnsafe();
+        if (baseGameMiniMiltySettings != null) {
+            writer.write(Constants.BASE_GAME_MINI_MILTY_SETTINGS + " " + baseGameMiniMiltySettings.json());
+            writer.write(System.lineSeparator());
+        } else if (game.getBaseGameMiniMiltySettingsJson() != null) {
+            writer.write(Constants.BASE_GAME_MINI_MILTY_SETTINGS + " " + game.getBaseGameMiniMiltySettingsJson());
             writer.write(System.lineSeparator());
         }
 

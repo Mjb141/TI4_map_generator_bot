@@ -1,9 +1,11 @@
 package ti4.discord.interactions.listeners;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
+import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -13,8 +15,8 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.function.Consumers;
-import ti4.contest.replay.service.CombatReplayHouseService;
 import ti4.discord.JdaService;
+import ti4.discord.interactions.buttons.Buttons;
 import ti4.executors.ExecutorServiceManager;
 import ti4.game.Game;
 import ti4.game.Player;
@@ -32,7 +34,6 @@ import ti4.service.fow.FOWCombatThreadMirroring;
 import ti4.service.fow.WhisperService;
 import ti4.service.game.CreateGameService;
 import ti4.service.game.GameNameService;
-import ti4.spring.context.SpringContext;
 import ti4.spring.service.deploy.ActiveLeaseService;
 import ti4.spring.service.messagecache.SavedBotMessagesService;
 
@@ -48,7 +49,28 @@ class MessageListener extends ListenerAdapter {
 
         Please do not ping bothelper again, the first ping is enough, just explain without a 2nd ping.
         """;
-    private static final List<String> INTERESTING_MESSAGES = List.of("gaslight", "please stop");
+    private static final List<String> INTERESTING_MESSAGES = List.of(
+            "please stop",
+            "stop pinging",
+            "stop messaging",
+            "crybaby",
+            "stop crying",
+            "don’t talk to me",
+            "do not message me",
+            "this isn’t okay",
+            "crossed a line",
+            "personal attack",
+            "harassment",
+            "harassing",
+            "bullying",
+            "you’re being rude",
+            "that was rude",
+            "cheater",
+            "bad faith",
+            "drop it",
+            "calm down",
+            "don’t make it personal",
+            "keep it game-related");
 
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
@@ -88,16 +110,8 @@ class MessageListener extends ListenerAdapter {
                 if (respondToBotHelperPing(message)) return;
                 if (checkForFogOfWarInvitePrompt(message)) return;
                 if (copyLFGPingsToLFGPingsChannel(event, message)) return;
-                addHouseEmojiReactionToLazaxMessages(event);
-                String messageRaw = message.getContentRaw().toLowerCase();
-                for (String phrase : INTERESTING_MESSAGES) {
-                    if (messageRaw.contains(phrase)) {
-                        String msg =
-                                "Someone used \"" + phrase + "\" at " + message.getJumpUrl() + ". Full message:\n> "
-                                        + message.getContentRaw().replace("\n", "\n> ");
-                        sendMessageToModLog(msg);
-                    }
-                }
+
+                reportInterestingMessages(message);
 
                 if (isValidGameMessage) {
                     if (handleWhispers(event, message, gameName)) return;
@@ -114,8 +128,15 @@ class MessageListener extends ListenerAdapter {
         }
     }
 
-    private static void addHouseEmojiReactionToLazaxMessages(MessageReceivedEvent event) {
-        SpringContext.getBean(CombatReplayHouseService.class).addHouseEmojiReactionIfNeeded(event);
+    private static void reportInterestingMessages(Message message) {
+        String messageRaw = message.getContentRaw().toLowerCase();
+        for (String phrase : INTERESTING_MESSAGES) {
+            if (messageRaw.contains(phrase)) {
+                String msg = "Someone used \"" + phrase + "\" at " + message.getJumpUrl() + ". Full message:\n> "
+                        + message.getContentRaw().replace("\n", "\n> ");
+                sendMessageToModLog(msg);
+            }
+        }
     }
 
     private static boolean respondToBotHelperPing(Message message) {
@@ -125,6 +146,23 @@ class MessageListener extends ListenerAdapter {
                 .anyMatch(mentionedRole -> JdaService.bothelperRoles.stream()
                         .anyMatch(bothelperRole -> bothelperRole.getIdLong() == mentionedRole.getIdLong()));
         boolean shouldRespondToBotHelperPing = messageLikelyMissingExplanation && messageMentionsBotHelper;
+        if (messageMentionsBotHelper) {
+            TextChannel bothelperLogChannel =
+                    JdaService.guildPrimary.getTextChannelsByName("bothelper-ping-log", true).stream()
+                            .findFirst()
+                            .orElse(null);
+            if (bothelperLogChannel != null) {
+                List<Button> buttons = new ArrayList<>();
+                buttons.add(Buttons.green("markResolved", "Resolved?"));
+
+                String msgWithoutMentions = message.getContentRaw();
+                for (Role role : message.getMentions().getRoles()) {
+                    msgWithoutMentions = msgWithoutMentions.replace(role.getAsMention(), role.getName());
+                }
+                String msg = message.getJumpUrl() + ". Full message:\n> " + msgWithoutMentions.replace("\n", "\n> ");
+                MessageHelper.sendMessageToChannelWithButtons(bothelperLogChannel, msg, buttons);
+            }
+        }
         if (messageMentionsBotHelper
                 && message.getChannel().getName().toLowerCase().contains("cards info")
                 && !message.getAuthor().isBot()) {
@@ -251,6 +289,14 @@ class MessageListener extends ListenerAdapter {
 
         receivingColorOrFaction = AliasHandler.resolveFaction(receivingColorOrFaction);
         if (!Mapper.isValidColor(receivingColorOrFaction) && !Mapper.isValidFaction(receivingColorOrFaction)) {
+            return true;
+        }
+
+        if (game.isWhispersDisabled()) {
+            MessageHelper.sendMessageToChannel(
+                    event.getChannel(),
+                    "Whispers are disabled in this game. To reenable them, use `/game setup whispers_enabled:true`.");
+            message.delete().queue(Consumers.nop(), BotLogger::catchRestError);
             return true;
         }
 

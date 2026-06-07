@@ -4,6 +4,7 @@ import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.game.Game;
+import ti4.game.GameStats;
 import ti4.game.Player;
 import ti4.helpers.ActionCardHelper;
 import ti4.helpers.AgendaHelper;
@@ -50,12 +51,7 @@ class ActionCardButtonHandler {
         }
         String message = game.getPing() + ", the action card _" + acName + "_ played by " + target
                 + " has been canceled by " + player.getRepresentationUnfogged() + " with ";
-        Integer count = game.getAllActionCardsSabod().get(acName);
-        if (count == null) {
-            game.setSpecificActionCardSaboCount(acName, 1);
-        } else {
-            game.setSpecificActionCardSaboCount(acName, 1 + count);
-        }
+        game.getGameStats().recordAcPlayWithTarget(GameStats.SABOTAGE, player, acName);
         GameMessageManager.remove(game.getName(), event.getMessageId());
         boolean sendReact = true;
         if ("empy".equalsIgnoreCase(type)) {
@@ -98,21 +94,21 @@ class ActionCardButtonHandler {
             message += "a _Sabotage_!";
             boolean hasSabo = false;
             String saboID = "3";
-            for (String AC : player.getActionCards().keySet()) {
-                if (AC.contains("sabo") || AC.contains("shatter")) {
+            for (String ac : player.getActionCards().keySet()) {
+                if (ac.contains("sabo") || ac.contains("shatter")) {
                     hasSabo = true;
-                    saboID = "" + player.getActionCards().get(AC);
+                    saboID = "" + player.getActionCards().get(ac);
                     break;
                 }
             }
             if (player.hasPlanet("garbozia")) {
-                for (String AC : ActionCardHelper.getGarboziaActionCards(player.getGame())
+                for (String ac : ActionCardHelper.getGarboziaActionCards(player.getGame())
                         .keySet()) {
-                    if (AC.contains("sabo") || AC.contains("shatter")) {
+                    if (ac.contains("sabo") || ac.contains("shatter")) {
                         hasSabo = true;
                         saboID = ""
                                 + ActionCardHelper.getGarboziaActionCards(player.getGame())
-                                        .get(AC);
+                                        .get(ac);
                         break;
                     }
                 }

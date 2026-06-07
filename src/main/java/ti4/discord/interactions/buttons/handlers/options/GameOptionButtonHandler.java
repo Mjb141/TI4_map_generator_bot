@@ -60,7 +60,7 @@ final class GameOptionButtonHandler {
         ButtonHelper.deleteMessage(event);
     }
 
-    @ButtonHandler("offerGameOptionButtons")
+    @ButtonHandler(value = "offerGameOptionButtons", save = false)
     public static void offerGameOptionButtons(Game game, MessageChannel channel) {
         GameOptionService.offerGameOptionButtons(game, channel);
     }
@@ -97,5 +97,10 @@ final class GameOptionButtonHandler {
                     "Someone has changed their preference from \"" + old + "\" to  \"" + declaration + "\" ");
         }
         game.setStoredValue(player.getUserID() + "anonDeclare", declaration);
+    }
+
+    @ButtonHandler("setupBaseGameMode")
+    public static void setupBaseGameMode(ButtonInteractionEvent event, Game game) {
+        game.initializeBaseGameMiniMiltySettings().postMessageAndButtons(event);
     }
 }

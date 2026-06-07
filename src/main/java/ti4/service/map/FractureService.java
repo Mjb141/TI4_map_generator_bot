@@ -147,7 +147,8 @@ public class FractureService {
 
             List<Button> buttons = new ArrayList<>(tilesWithSkip.stream()
                     .map(tile -> {
-                        String id = player.finChecker() + "addIngressToken_" + tile.getPosition() + "_" + countPer;
+                        String id = player.factionButtonChecker() + "addIngressToken_" + tile.getPosition() + "_"
+                                + countPer;
                         String label = "Add Ingress To " + tile.getRepresentationForButtons(game, player);
                         return Buttons.red(id, label, type.emoji());
                     })
@@ -155,7 +156,7 @@ public class FractureService {
 
             String msg = game.isFowMode()
                     ? GMService.gmPing(game)
-                    : player.getRepresentation() + ", please a system with a " + type.emoji()
+                    : player.getRepresentation() + ", please choose a system with a " + type.emoji()
                             + " to place an Ingress token.";
             buttons.add(Buttons.gray("deleteButtons", "Done Resolving"));
             MessageHelper.sendMessageToChannelWithButtons(

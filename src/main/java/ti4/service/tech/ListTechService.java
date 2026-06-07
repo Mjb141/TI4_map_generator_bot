@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.netrunners.NetrunnersBreakthroughHandler;
 import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.game.Game;
 import ti4.game.Planet;
@@ -106,7 +107,7 @@ public class ListTechService {
             List<TechnologyType> techTypes,
             boolean first) {
         game.setComponentAction(!sc);
-        String finsFactionCheckerPrefix = player.getFinsFactionCheckerPrefix();
+        String finsFactionCheckerPrefix = player.factionButtonChecker();
         game.setComponentAction(!sc);
         String techPrefix = finsFactionCheckerPrefix + "getAllTechOfType_";
         String techSuffix = dwsBt ? "_dwsbt" : "";
@@ -161,7 +162,7 @@ public class ListTechService {
         MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), message, buttons);
     }
 
-    @ButtonHandler("getAllTechOfType_")
+    @ButtonHandler(value = "getAllTechOfType_", save = false)
     public static void getAllTechOfType(ButtonInteractionEvent event, Player player, String buttonID, Game game) {
         getAllTechOfType(event, player, buttonID, game, event.getMessageChannel());
     }
@@ -321,6 +322,10 @@ public class ListTechService {
         if (player.hasRelicReady("prophetstears") || player.hasRelicReady("absol_prophetstears")) {
             wilds++;
         }
+        if (player.hasUnlockedBreakthrough("netrunnersbt")) {
+            int dataBreachDiscount = NetrunnersBreakthroughHandler.getDataBreachDiscount(player, tech);
+            wilds += Math.clamp(dataBreachDiscount, 0, requirements.length());
+        }
 
         // All sources of pre-requisites below can also apply via synergy.
         // - Replace all synergies that the player has with a simple "X"
@@ -370,7 +375,7 @@ public class ListTechService {
 
         techs.sort(TechnologyModel.sortByTechRequirements);
 
-        String idPrefix = player.finChecker()
+        String idPrefix = player.factionButtonChecker()
                 + switch (buttonPrefixType.toLowerCase()) {
                     case "normal", "res", "nekro", "nopay", "free", "inf", "shareknowledge", "dwsbt" -> "getTech_";
                     default -> "swapTechs__" + buttonPrefixType + "__";

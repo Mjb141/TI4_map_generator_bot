@@ -13,8 +13,11 @@ import org.apache.commons.lang3.function.Consumers;
 import ti4.contest.replay.service.CombatReplayService;
 import ti4.discord.interactions.buttons.Buttons;
 import ti4.discord.interactions.buttons.handlers.edict.EdictPhaseHandler;
-import ti4.discord.interactions.buttons.handlers.faction.homebrew.onyxxa.OnyxxaHeroButtonHandler;
-import ti4.discord.interactions.buttons.handlers.faction.homebrew.xan.XanHeroButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.base.arborec.ArborecButtonHandlers;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.DreamButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.netrunners.NetrunnersLeadersHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.onyxxa.OnyxxaHeroButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.xan.XanHeroButtonHandler;
 import ti4.game.Game;
 import ti4.game.Leader;
 import ti4.game.Player;
@@ -35,6 +38,7 @@ import ti4.helpers.FoWHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.RandomHelper;
 import ti4.helpers.RelicHelper;
+import ti4.helpers.StringHelper;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.DSHelperBreakthroughs;
 import ti4.image.Mapper;
@@ -53,6 +57,7 @@ import ti4.service.emoji.FactionEmojis;
 import ti4.service.emoji.LeaderEmojis;
 import ti4.service.emoji.MiscEmojis;
 import ti4.service.explore.AddFrontierTokensService;
+import ti4.service.franken.FrankenAlternateTextService;
 import ti4.service.info.ListTurnOrderService;
 import ti4.service.planet.PlanetService;
 import ti4.service.strategycard.PlayStrategyCardService;
@@ -65,12 +70,28 @@ import ti4.spring.context.SpringContext;
 public class PlayHeroService {
 
     public static boolean removeLeader(Game game, Player player, Leader leader) {
+        rememberFrankenFirmamentHero(player, leader);
         LeaderRemovalReason reason = LeaderRemovalReason.fromHeroId(leader.getId());
         boolean removed = player.removeLeader(leader);
         if (removed && (reason == LeaderRemovalReason.PURGED || reason == LeaderRemovalReason.STATUS_CLEANUP)) {
             DSHelperBreakthroughs.doLanefirBtCheck(game, player);
         }
         return removed;
+    }
+
+    public static void rememberFrankenFirmamentHero(Player player, Leader leader) {
+        if (player == null
+                || leader == null
+                || player.getGame() == null
+                || !player.getGame().isFrankenGame()) {
+            return;
+        }
+        if (!"firmamenthero".equals(leader.getId())) {
+            return;
+        }
+        if (!player.getStoredList("appliedFrankenItems").contains("HERO:firmamenthero")) {
+            player.addToStoredList("appliedFrankenItems", "HERO:firmamenthero");
+        }
     }
 
     public static void playHero(GenericInteractionCreateEvent event, Game game, Player player, Leader playerLeader) {
@@ -86,8 +107,8 @@ public class PlayHeroService {
                             event.getChannel().getName());
             MessageHelper.sendMessageToChannel(player.getCorrectChannel(), player.getRepresentation() + " played:");
             player.getCorrectChannel()
-                    .sendMessageEmbeds(leaderModel.getRepresentationEmbed(
-                            false, true, false, showFlavourText, game.isTwilightsFallMode()))
+                    .sendMessageEmbeds(FrankenAlternateTextService.getLeaderEmbed(
+                            game, leaderModel, false, true, false, showFlavourText, game.isTwilightsFallMode()))
                     .queue(Consumers.nop(), BotLogger::catchRestError);
         } else {
             MessageHelper.sendMessageToChannel(
@@ -153,7 +174,7 @@ public class PlayHeroService {
                 // You may choose to no longer be passed; if you do, gain 2 command tokens, draw 1 action card, and
                 // purge this card
                 player.setPassed(false);
-                String prefix = player.getFinsFactionCheckerPrefix();
+                String prefix = player.factionButtonChecker();
                 List<Button> buttons = new ArrayList<>();
                 buttons.add(Buttons.green(prefix + "gain_CC", "Gain 2 Command Tokens"));
                 buttons.add(Buttons.green(prefix + "drawActionCards_1", "Draw 1 Action Card"));
@@ -208,6 +229,10 @@ public class PlayHeroService {
             }
             case "onyxxahero" -> OnyxxaHeroButtonHandler.postInitialButtons(game, player);
             case "xanhero" -> XanHeroButtonHandler.postInitialButtons(game, player);
+            case "dreamhero" -> DreamButtonHandler.postDreamHeroButtons(game, player);
+            case "netrunnershero" -> NetrunnersLeadersHandler.startRevolution(game, player);
+            case "tyrishero" ->
+                game.setStoredValue("tyrisHeroRound" + game.getRound() + "_" + player.getFaction(), "true");
             case "mirvedahero" -> {
                 List<Button> buttons = Helper.getPlanetPlaceUnitButtons(player, game, "pds", "placeOneNDone_skipbuild");
                 String message = "Please choose a planet to place a PDS";
@@ -339,7 +364,7 @@ public class PlayHeroService {
                         buttons);
             }
             case "arborechero" -> {
-                List<Button> buttons = ButtonHelperHeroes.getArboHeroButtons(game, player);
+                List<Button> buttons = ArborecButtonHandlers.getArboHeroButtons(game, player);
                 MessageHelper.sendMessageToChannelWithButtons(
                         event.getMessageChannel(),
                         player.getRepresentation(true, showFlavourText)
@@ -359,8 +384,8 @@ public class PlayHeroService {
                         .size();
                 MessageHelper.sendMessageToChannel(
                         player.getCorrectChannel(),
-                        player.getFactionEmoji() + " may resolve " + size
-                                + " agenda" + (size == 1 ? "" : "s") + " because that's how many Sigils they got."
+                        player.getFactionEmoji() + " may resolve " + StringHelper.pluralize(size, "agenda")
+                                + " because that's how many Sigils they got."
                                 + " After putting the agendas on top in the order you wish (don't bottom any), please press the button to reveal an agenda.");
                 AgendaHelper.drawAgenda(size, game, player);
                 Button flipAgenda = Buttons.blue("flip_agenda", "Press This to Flip Agenda");
@@ -382,8 +407,7 @@ public class PlayHeroService {
                 }
                 MessageHelper.sendMessageToChannel(
                         player.getCorrectChannel(),
-                        player.getFactionEmoji() + " may gain " + size + " command token" + (size == 1 ? "" : "s")
-                                + ".");
+                        player.getFactionEmoji() + " may gain " + StringHelper.pluralize(size, "command token") + ".");
                 List<Button> buttons = ButtonHelper.getGainCCButtons(player);
                 String trueIdentity = player.getRepresentationUnfogged();
                 String message2 = trueIdentity + ", your current command tokens are " + player.getCCRepresentation()
@@ -517,7 +541,7 @@ public class PlayHeroService {
                 for (int x = 0; x < 3; x++) {
                     AgendaModel edict = Mapper.getAgenda(edicts.get(x));
                     buttons.add(Buttons.green(
-                            tyrant.getFinsFactionCheckerPrefix() + "resolveEdict_" + edicts.get(x), edict.getName()));
+                            tyrant.factionButtonChecker() + "resolveEdict_" + edicts.get(x), edict.getName()));
                     embeds.add(edict.getRepresentationEmbed());
                 }
                 String msg = tyrant.getRepresentation()
@@ -593,8 +617,8 @@ public class PlayHeroService {
             }
             case "yinhero" -> {
                 List<Button> buttons = new ArrayList<>();
-                buttons.add(Buttons.blue(
-                        player.getFinsFactionCheckerPrefix() + "yinHeroStart", "Invade A Planet With Yin Hero"));
+                buttons.add(
+                        Buttons.blue(player.factionButtonChecker() + "yinHeroStart", "Invade A Planet With Yin Hero"));
                 buttons.add(Buttons.red("deleteButtons", "Delete Buttons"));
                 MessageHelper.sendMessageToChannelWithButtons(
                         event.getMessageChannel(),
@@ -639,11 +663,9 @@ public class PlayHeroService {
             case "augershero" -> {
                 List<Button> buttons = new ArrayList<>();
                 buttons.add(Buttons.blue(
-                        player.getFinsFactionCheckerPrefix() + "augersHeroStart_" + 1,
-                        "Resolve Ilyxum Hero on Stage 1 Deck"));
+                        player.factionButtonChecker() + "augersHeroStart_" + 1, "Resolve Ilyxum Hero on Stage 1 Deck"));
                 buttons.add(Buttons.blue(
-                        player.getFinsFactionCheckerPrefix() + "augersHeroStart_" + 2,
-                        "Resolve Ilyxum Hero on Stage 2 Deck"));
+                        player.factionButtonChecker() + "augersHeroStart_" + 2, "Resolve Ilyxum Hero on Stage 2 Deck"));
                 buttons.add(Buttons.red("deleteButtons", "Delete Buttons"));
                 MessageHelper.sendMessageToChannelWithButtons(
                         event.getMessageChannel(),

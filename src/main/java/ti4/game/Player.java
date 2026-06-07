@@ -37,7 +37,6 @@ import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.entities.emoji.CustomEmoji;
 import net.dv8tion.jda.api.entities.emoji.Emoji;
 import net.dv8tion.jda.api.entities.emoji.UnicodeEmoji;
@@ -51,6 +50,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import ti4.discord.JdaService;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.lunarium.LunariumAbilityButtonHandler;
+import ti4.discord.utility.DiscordChannelUtility;
 import ti4.draft.DraftBag;
 import ti4.draft.DraftItem;
 import ti4.game.helper.StoredValueHelper;
@@ -66,11 +67,15 @@ import ti4.helpers.StringHelper;
 import ti4.helpers.TIGLHelper.TIGLRank;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
+import ti4.helpers.discord.DiscordErrorUtility;
 import ti4.image.DrawingUtil;
 import ti4.image.Mapper;
 import ti4.image.PositionMapper;
 import ti4.logging.BotLogger;
 import ti4.logging.LogOrigin;
+import ti4.message.GameMessage;
+import ti4.message.GameMessageManager;
+import ti4.message.GameMessageType;
 import ti4.message.MessageHelper;
 import ti4.model.AbilityModel;
 import ti4.model.BreakthroughModel;
@@ -99,7 +104,7 @@ import ti4.service.fow.GMService;
 import ti4.service.fow.LoreService;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.map.FractureService;
-import ti4.service.statistics.round.RoundStatsTracker;
+import ti4.service.strategycard.PlayStrategyCardService;
 import ti4.service.turn.EndTurnService;
 import ti4.service.turn.StartTurnService;
 import ti4.service.unit.CheckUnitContainmentService;
@@ -583,7 +588,7 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     }
 
     @Nullable
-    public MessageChannel getPrivateChannel() {
+    public TextChannel getPrivateChannel() {
         try {
             return JdaService.jda.getTextChannelById(getPrivateChannelID());
         } catch (Exception e) {
@@ -591,14 +596,10 @@ public class Player extends PlayerProperties implements StoredValueHelper {
         }
     }
 
-    public String finChecker() {
+    public String factionButtonChecker() {
         if (isNpc() || isDummy()) {
             return dummyPlayerSpoof();
         }
-        return getFinsFactionCheckerPrefix();
-    }
-
-    public String getFinsFactionCheckerPrefix() {
         return "FFCC_" + getFaction() + "_";
     }
 
@@ -654,154 +655,79 @@ public class Player extends PlayerProperties implements StoredValueHelper {
 
     @Nullable
     private ThreadChannel getCardsInfoThread(boolean createIfMissing) {
-        if (isNpc() || isDummy()) {
-            return null;
-        }
+        if (isNpc() || isDummy()) return null;
 
-        TextChannel actionsChannel = game.getMainGameChannel();
-        if (game.isFowMode() || game.isCommunityMode()) {
-            actionsChannel = (TextChannel) getPrivateChannel();
-
-            if (!isRealPlayer() && isGM()) {
-                List<TextChannel> channels = game.getGuild().getTextChannelsByName(game.getName() + "-gm-room", true);
-                actionsChannel = channels.isEmpty() ? null : channels.getFirst();
-            }
-        }
-        if (actionsChannel == null) {
-            actionsChannel = game.getMainGameChannel();
-        }
-        if (actionsChannel == null) {
+        TextChannel parentChannel = getCorrectChannel();
+        if (parentChannel == null) {
             if (!game.isHasEnded()) {
                 BotLogger.warning(
                         new LogOrigin(this),
-                        "`Player.getCardsInfoThread`: actionsChannel is null for game, or community game private channel not set: "
-                                + game.getName());
+                        "`Player.getCardsInfoThread`: parent channel is null for game: " + game.getName());
             }
             return null;
         }
+
         String userName = getUserName().replace("/", "");
-        String threadName = Constants.CARDS_INFO_THREAD_PREFIX + game.getName() + "-" + userName;
-        if (game.isFowMode()) {
-            threadName = game.getName() + "-cards-info-" + userName + "-private";
+        String threadName = game.isFowMode()
+                ? String.format("%s-cards-info-%s-private", game.getName(), userName)
+                : String.format("%s%s-%s", Constants.CARDS_INFO_THREAD_PREFIX, game.getName(), userName);
+
+        ThreadChannel foundThread = findCardsInfoThreadByIdOrName(parentChannel, threadName);
+
+        if (foundThread != null) {
+            setCardsInfoThreadID(foundThread.getId());
+            return foundThread;
         }
 
-        List<ThreadChannel> threadChannels = actionsChannel.getThreadChannels();
-        List<ThreadChannel> hiddenThreadChannels = new ArrayList<>();
-        List<ThreadChannel> allActiveChannels = new ArrayList<>();
+        return createIfMissing ? createNewThread(parentChannel, threadName) : null;
+    }
 
-        // ATTEMPT TO FIND BY ID
+    @Nullable
+    private ThreadChannel findCardsInfoThreadByIdOrName(TextChannel parentChannel, String name) {
+        Long id = getCardsInfoThreadIdLong();
+        if (id != null) {
+            ThreadChannel thread = retrieveCardsInfoThreadById(parentChannel, id);
+            if (thread != null) return thread;
+        }
+        return DiscordChannelUtility.retrieveFirstThreadChannelByNameIgnoringCase(parentChannel, name)
+                .complete();
+    }
+
+    private Long getCardsInfoThreadIdLong() {
+        String idStr = getCardsInfoThreadID();
+        if (StringUtils.isBlank(idStr) || "null".equals(idStr)) return null;
         try {
-            String cardsInfoThreadID = getCardsInfoThreadID();
-            if (cardsInfoThreadID != null && !cardsInfoThreadID.isBlank() && !"null".equals(cardsInfoThreadID)) {
-                ThreadChannel threadChannel = actionsChannel.getGuild().getThreadChannelById(cardsInfoThreadID);
-                if (threadChannel != null) {
-                    setCardsInfoThreadID(threadChannel.getId());
-                    return threadChannel;
-                }
-
-                // SEARCH FOR EXISTING OPEN THREAD IN CACHE
-                for (ThreadChannel threadChannel_ : threadChannels) {
-                    if (threadChannel_.getId().equalsIgnoreCase(cardsInfoThreadID)) {
-                        setCardsInfoThreadID(threadChannel_.getId());
-                        return threadChannel_;
-                    }
-                }
-
-                // SEARCH FOR EXISTING ACTIVE THREAD
-                allActiveChannels =
-                        actionsChannel.getGuild().retrieveActiveThreads().complete();
-                for (ThreadChannel threadChannel_ : allActiveChannels) {
-                    if (threadChannel_.getId().equalsIgnoreCase(cardsInfoThreadID)) {
-                        setCardsInfoThreadID(threadChannel_.getId());
-                        return threadChannel_;
-                    }
-                }
-
-                // SEARCH FOR EXISTING CLOSED/ARCHIVED THREAD
-                hiddenThreadChannels =
-                        actionsChannel.retrieveArchivedPrivateThreadChannels().complete();
-                for (ThreadChannel threadChannel_ : hiddenThreadChannels) {
-                    if (threadChannel_.getId().equalsIgnoreCase(cardsInfoThreadID)) {
-                        setCardsInfoThreadID(threadChannel_.getId());
-                        return threadChannel_;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            logCardsInfoThreadLookupFailure(
-                    "`Player.getCardsInfoThread`: Could not find existing #cards-info thread using ID: "
-                            + getCardsInfoThreadID() + " for potential thread name: " + threadName,
-                    e,
-                    createIfMissing);
-        }
-
-        // ATTEMPT TO FIND BY NAME
-        try {
-            // FIND DIRECTLY BY NAME
-            List<ThreadChannel> threadChannelsByName =
-                    actionsChannel.getGuild().getThreadChannelsByName(threadName, true);
-            if (!threadChannelsByName.isEmpty()) {
-                ThreadChannel threadChannel = threadChannelsByName.getFirst();
-                setCardsInfoThreadID(threadChannel.getId());
-                return threadChannel;
-            }
-
-            // SEARCH FOR EXISTING OPEN THREAD IN CACHE
-            for (ThreadChannel threadChannel_ : threadChannels) {
-                if (threadChannel_.getName().equalsIgnoreCase(threadName)) {
-                    setCardsInfoThreadID(threadChannel_.getId());
-                    return threadChannel_;
-                }
-            }
-
-            // SEARCH FOR EXISTING ACTIVE THREAD
-            if (allActiveChannels.isEmpty()) {
-                allActiveChannels =
-                        actionsChannel.getGuild().retrieveActiveThreads().complete();
-            }
-            for (ThreadChannel threadChannel_ : allActiveChannels) {
-                if (threadChannel_.getName().equalsIgnoreCase(threadName)) {
-                    setCardsInfoThreadID(threadChannel_.getId());
-                    return threadChannel_;
-                }
-            }
-
-            // SEARCH FOR EXISTING CLOSED/ARCHIVED THREAD
-            if (hiddenThreadChannels.isEmpty()) {
-                hiddenThreadChannels =
-                        actionsChannel.retrieveArchivedPrivateThreadChannels().complete();
-            }
-            for (ThreadChannel threadChannel_ : hiddenThreadChannels) {
-                if (threadChannel_.getName().equalsIgnoreCase(threadName)) {
-                    setCardsInfoThreadID(threadChannel_.getId());
-                    return threadChannel_;
-                }
-            }
-        } catch (Exception e) {
-            logCardsInfoThreadLookupFailure(
-                    "`Player.getCardsInfoThread`: Could not find existing #cards-info thread using name: " + threadName,
-                    e,
-                    createIfMissing);
-        }
-
-        if (!createIfMissing) {
+            return Long.valueOf(idStr);
+        } catch (NumberFormatException e) {
             return null;
         }
+    }
 
-        // CREATE NEW THREAD
-        // Make card info thread a public thread in community mode
-        boolean isPrivateChannel = !game.isFowMode();
-        ThreadChannelAction threadAction = actionsChannel
-                .createThreadChannel(threadName, isPrivateChannel)
-                .setAutoArchiveDuration(ThreadChannel.AutoArchiveDuration.TIME_1_WEEK);
-        if (isPrivateChannel) {
-            threadAction = threadAction.setInvitable(false);
+    @Nullable
+    private ThreadChannel retrieveCardsInfoThreadById(TextChannel parentChannel, Long id) {
+        try {
+            return DiscordChannelUtility.retrieveThreadChannelById(parentChannel.getGuild(), id)
+                    .complete();
+        } catch (Exception e) {
+            if (DiscordErrorUtility.isUnknownChannelError(e)) {
+                return null;
+            }
+            throw e;
         }
-        ThreadChannel threadChannel = threadAction.complete();
-        String message = "Hello " + getPing() + "! This is your private channel.";
-        MessageHelper.sendMessageToChannel(threadChannel, message);
-        setCardsInfoThreadID(threadChannel.getId());
-        return threadChannel;
+    }
+
+    private ThreadChannel createNewThread(TextChannel actionsChannel, String threadName) {
+        boolean isPrivate = !game.isFowMode();
+        ThreadChannelAction action = actionsChannel
+                .createThreadChannel(threadName, isPrivate)
+                .setAutoArchiveDuration(ThreadChannel.AutoArchiveDuration.TIME_1_WEEK);
+
+        if (isPrivate) action = action.setInvitable(false);
+
+        ThreadChannel thread = action.complete();
+        MessageHelper.sendMessageToChannel(thread, "Hello " + getPing() + "! This is your private channel.");
+        setCardsInfoThreadID(thread.getId());
+        return thread;
     }
 
     public String getCardsInfoThreadJumpLink() {
@@ -909,15 +835,7 @@ public class Player extends PlayerProperties implements StoredValueHelper {
 
     @Override
     public Map<String, Integer> getPlotCards() {
-        Map<String, Integer> plots = new LinkedHashMap<>();
-        for (String plot : getPlotCardsRaw().keySet()) {
-            if (plot.startsWith("mutated")) {
-                String other = plot.replace("mutated_", "");
-                if (getPlotCardsRaw().containsKey(other)) continue;
-            }
-            plots.put(plot, getPlotCardsRaw().get(plot));
-        }
-        return MapUtils.unmodifiableMap(plots);
+        return MapUtils.unmodifiableMap(new LinkedHashMap<>(getPlotCardsRaw()));
     }
 
     public Map<String, List<String>> getPlotCardsFactionsRaw() {
@@ -927,7 +845,7 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     @Override
     public Map<String, List<String>> getPlotCardsFactions() {
         Map<String, List<String>> plots = new LinkedHashMap<>();
-        for (String plot : getPlotCards().keySet()) {
+        for (String plot : getPlotCardsRaw().keySet()) {
             List<String> puppets = getPlotCardsFactionsRaw().get(plot);
             if (puppets == null) puppets = List.of();
             plots.put(plot, puppets);
@@ -1278,7 +1196,9 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     }
 
     public int getMaxSOCount() {
-        int maxSOCount = game.getMaxSOCountPerPlayer();
+        int maxSOCount = hasAbility("multitasking")
+                ? LunariumAbilityButtonHandler.getFactionSheetCCs(game, this)
+                : game.getMaxSOCountPerPlayer();
         int bonus = 0;
         if (hasRelic("obsidian")) bonus++;
         if (hasRelic("absol_obsidian")) bonus++;
@@ -1604,12 +1524,17 @@ public class Player extends PlayerProperties implements StoredValueHelper {
         User userById = getUser();
         if (userById == null) return super.getUserName();
 
-        Member member = JdaService.guildPrimary.getMemberById(getUserID());
+        Member member = getMember();
         if (member == null) {
-            setUserName(userById.getName());
-        } else {
-            setUserName(member.getEffectiveName());
+            member = JdaService.guildPrimary.getMemberById(getUserID());
         }
+
+        if (member != null) {
+            setUserName(member.getEffectiveName());
+        } else {
+            setUserName(userById.getName());
+        }
+
         return super.getUserName();
     }
 
@@ -1904,6 +1829,10 @@ public class Player extends PlayerProperties implements StoredValueHelper {
         if (hasLeader(leaderId)) {
             return !getLeaderByID(leaderId).map(Leader::isExhausted).orElse(true);
         } else {
+            if (leaderId.contains("keleresagent")
+                    && game.getStoredValue("keleresAgentTarget").equalsIgnoreCase(getFaction())) {
+                return true;
+            }
             return hasExternalAccessToLeader(leaderId)
                     && !getLeaderByID("yssarilagent").map(Leader::isExhausted).orElse(true);
         }
@@ -1982,7 +1911,7 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     }
 
     public void addLeader(String leaderID) {
-        if (!getLeaderIDs().contains(leaderID)) {
+        if (leaderID != null && !getLeaderIDs().contains(leaderID) && !leaderID.isEmpty()) {
             Leader leader = new Leader(leaderID);
             leaders.add(leader);
         }
@@ -2073,7 +2002,10 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     }
 
     public int getEffectiveFleetCC() {
-        return getFleetCC() + getMahactCC().size();
+        return getFleetCC()
+                + ((hasAbility("edict") || hasAbility("edict_y"))
+                        ? getMahactCC().size()
+                        : 0);
     }
 
     @Override
@@ -2162,9 +2094,30 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     }
 
     public void addFollowedSC(Integer sc, GenericInteractionCreateEvent event) {
+        addFollowedSC(sc, event, true);
+    }
+
+    public void addFollowedSC(Integer sc, GenericInteractionCreateEvent event, boolean editSCFollow) {
         Game game = this.game;
 
         getFollowedSCs().add(sc);
+        if (editSCFollow) {
+            game.setStoredValue(
+                    "followedSC" + sc + "_" + game.getRound(),
+                    game.getStoredValue("followedSC" + sc + "_" + game.getRound()) + "_" + getFaction());
+            GameMessage gameMessage = GameMessageManager.getOne(
+                            game.getName(), GameMessageType.STRATEGY_FOLLOW, game.getRound() + "_" + sc)
+                    .orElse(null);
+            if (gameMessage != null) {
+                ThreadChannel chan = ButtonHelper.getRightStratThread(
+                        game, ButtonHelper.getStratName(ButtonHelper.getStratName(sc), game));
+                if (chan != null) {
+                    chan.retrieveMessageById(gameMessage.messageId()).queue(mainMessage -> mainMessage
+                            .editMessage(PlayStrategyCardService.getSCFollowSummary(game, sc))
+                            .queue());
+                }
+            }
+        }
         if (game != null && game.getActivePlayer() != null) {
 
             if (game.isTwilightsFallMode() && (sc == 2 || sc == 6 || sc == 7)) {
@@ -2530,7 +2483,6 @@ public class Player extends PlayerProperties implements StoredValueHelper {
             return;
         }
         getTechs().add(techID);
-        RoundStatsTracker.recordTechGained(game, this, techID);
         doAdditionalThingsWhenAddingTech(techID);
     }
 
@@ -3088,15 +3040,15 @@ public class Player extends PlayerProperties implements StoredValueHelper {
     /**
      * @return Player's private channel if Fog of War game, otherwise the GM channel
      */
-    public MessageChannel getCorrectChannel() {
+    public TextChannel getCorrectChannel() {
+        TextChannel privateChannel = getPrivateChannel();
         if (game.isFowMode()) {
-            if (getPrivateChannel() != null) {
-                return getPrivateChannel();
-            } else {
-                return GMService.getGMChannel(game);
+            if (privateChannel != null) {
+                return privateChannel;
             }
+            return GMService.getGMChannel(game);
         }
-        return game.getMainGameChannel();
+        return privateChannel != null ? privateChannel : game.getMainGameChannel();
     }
 
     public String bannerName() {
@@ -3270,7 +3222,7 @@ public class Player extends PlayerProperties implements StoredValueHelper {
                 .toList();
     }
 
-    private TextDisplay getComponentsTextDisplay(String title, List<String> descrs) {
+    private static TextDisplay getComponentsTextDisplay(String title, List<String> descrs) {
         if (descrs.isEmpty()) {
             return TextDisplay.of(title + "\n> -none-");
         } else {

@@ -34,7 +34,7 @@ public class TkHelperUnits {
         String ident = player.getRepresentationNoPing();
         MessageHelper.sendMessageToChannel(event.getChannel(), ident + " is using _Moyin's Chosen_.");
 
-        List<Button> buttons = Helper.getTileWithShipsPlaceUnitButtons(player, game, "1ff", "placeOneNDone_skipbuild");
+        List<Button> buttons = Helper.getTileWithShipsPlaceUnitButtons(player, game, "ff", "placeOneNDone_skipbuild");
         String message = player.getRepresentation() + " use the buttons to deploy 1 fighter with your ships using the ";
         message += UnitEmojis.destroyer + " " + FactionEmojis.Yin + " _Moyin's Chosen_ ability.";
         MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message, buttons);
@@ -55,8 +55,8 @@ public class TkHelperUnits {
     @ButtonHandler("useVisionariaArchive")
     private void useVisionariaArchive(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
         if (player.getTg() < 3) {
-            String msg = "You only have " + player.getTg() + " trade goods, so you cannot use this ability.";
-            msg = " You can try transacting for more trade goods first.";
+            String msg = "You only have " + player.getTg() + " trade goods, so you cannot use this ability."
+                    + " You can try transacting for more trade goods first.";
             MessageHelper.sendEphemeralMessageToEventChannel(event, msg);
             return;
         }

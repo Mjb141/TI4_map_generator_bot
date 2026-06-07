@@ -8,6 +8,7 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.lunarium.LunariumAbilityButtonHandler;
 import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.game.Game;
 import ti4.game.Player;
@@ -18,6 +19,7 @@ import ti4.helpers.ButtonHelperCommanders;
 import ti4.helpers.ButtonHelperSCs;
 import ti4.helpers.CommandCounterHelper;
 import ti4.helpers.Helper;
+import ti4.helpers.StringHelper;
 import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
 import ti4.service.button.ReactionService;
@@ -118,15 +120,15 @@ public class CommandCounterButtonHandler {
                 + player.getCCRepresentation() + ". Use buttons to gain command tokens.";
         game.setStoredValue("originalCCsFor" + player.getFaction(), player.getCCRepresentation());
 
-        String finChecker = player.finChecker();
-        Button getTactic = Buttons.green(finChecker + "increase_tactic_cc", "Gain 1 Tactic Token");
-        Button getFleet = Buttons.green(finChecker + "increase_fleet_cc", "Gain 1 Fleet Token");
-        Button getStrat = Buttons.green(finChecker + "increase_strategy_cc", "Gain 1 Strategy Token");
-        Button loseTactic = Buttons.red(finChecker + "decrease_tactic_cc", "Lose 1 Tactic Token");
-        Button loseFleet = Buttons.red(finChecker + "decrease_fleet_cc", "Lose 1 Fleet Token");
-        Button loseStrat = Buttons.red(finChecker + "decrease_strategy_cc", "Lose 1 Strategy Token");
-        Button doneGainingCC = Buttons.blue(finChecker + "deleteButtons", "Done Redistributing Command Tokens");
-        Button resetCC = Buttons.gray(finChecker + "resetCCs", "Reset Command Tokens");
+        String factionChecker = player.factionButtonChecker();
+        Button getTactic = Buttons.green(factionChecker + "increase_tactic_cc", "Gain 1 Tactic Token");
+        Button getFleet = Buttons.green(factionChecker + "increase_fleet_cc", "Gain 1 Fleet Token");
+        Button getStrat = Buttons.green(factionChecker + "increase_strategy_cc", "Gain 1 Strategy Token");
+        Button loseTactic = Buttons.red(factionChecker + "decrease_tactic_cc", "Lose 1 Tactic Token");
+        Button loseFleet = Buttons.red(factionChecker + "decrease_fleet_cc", "Lose 1 Fleet Token");
+        Button loseStrat = Buttons.red(factionChecker + "decrease_strategy_cc", "Lose 1 Strategy Token");
+        Button doneGainingCC = Buttons.blue(factionChecker + "deleteButtons", "Done Redistributing Command Tokens");
+        Button resetCC = Buttons.gray(factionChecker + "resetCCs", "Reset Command Tokens");
 
         List<Button> buttons =
                 Arrays.asList(getTactic, getFleet, getStrat, loseTactic, loseFleet, loseStrat, doneGainingCC, resetCC);
@@ -201,8 +203,8 @@ public class CommandCounterButtonHandler {
                         player.getCardsInfoThread(),
                         "## " + player.getRepresentationUnfogged()
                                 + ", heads up, the bot thinks you should gain " + (properGain == 1 ? "only " : "")
-                                + properGain + " command token"
-                                + (properGain == 1 ? "" : "s") + " now due to: " + reasons + ".");
+                                + StringHelper.pluralize(properGain, "command token") + " now due to: " + reasons
+                                + ".");
                 if (!player.getMahactCC().isEmpty() && mahactMalev) {
                     String malevMsg = "## " + player.getRepresentationUnfogged() + " you should gain your normal";
                     malevMsg += " amount of tokens now, and then you will have the option to lose your own or another";
@@ -217,6 +219,9 @@ public class CommandCounterButtonHandler {
                                 + ButtonHelper.checkFleetInEveryTile(player, game)
                                 + ". That's how many command tokens you'll need to retain in your fleet pool to avoid removing ships.");
             }
+        }
+        if (player.hasAbility("multitasking")) {
+            LunariumAbilityButtonHandler.offerFactionSheetCCButtons(game, player);
         }
     }
 
@@ -256,6 +261,12 @@ public class CommandCounterButtonHandler {
 
     @ButtonHandler("gain_CC")
     public static void gainCC(ButtonInteractionEvent event, Player player, Game game) {
+        gainCCNoDelete(event, player, game);
+        ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
+    }
+
+    @ButtonHandler("gainCCNoDelete")
+    public static void gainCCNoDelete(ButtonInteractionEvent event, Player player, Game game) {
         String message = "";
 
         String message2 = player.getRepresentationUnfogged() + ", your current command tokens are "
@@ -265,13 +276,12 @@ public class CommandCounterButtonHandler {
         MessageHelper.sendMessageToChannelWithButtons(event.getChannel(), message2, buttons);
 
         ReactionService.addReaction(event, game, player, message);
-        ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
     }
 
     @ButtonHandler("confirm_cc")
     public static void confirmCC(ButtonInteractionEvent event, Game game, Player player) {
         String message = "Confirmed command tokens: " + player.getTacticalCC() + "/" + player.getFleetCC();
-        if (!player.getMahactCC().isEmpty()) {
+        if (player.hasAbility("edict") || player.hasAbility("edict_y")) {
             message += "(+" + player.getMahactCC().size() + ")";
         }
         message += "/" + player.getStrategicCC();

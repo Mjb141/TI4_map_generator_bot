@@ -6,11 +6,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import ti4.discord.interactions.buttons.Buttons;
-import ti4.discord.interactions.buttons.handlers.faction.homebrew.lunarium.LunariumCommanderHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.lunarium.LunariumCommanderHandler;
 import ti4.game.Game;
 import ti4.game.Leader;
 import ti4.game.Player;
@@ -20,16 +21,21 @@ import ti4.model.SecretObjectiveModel;
 import ti4.service.emoji.CardEmojis;
 import ti4.service.emoji.ExploreEmojis;
 import ti4.service.emoji.UnitEmojis;
+import ti4.service.game.EndedGameScoringGuardService;
 import ti4.service.info.ListPlayerInfoService;
 import ti4.service.info.SecretObjectiveInfoService;
 import ti4.service.leader.CommanderUnlockCheckService;
 import ti4.service.leader.HeroUnlockCheckService;
 import ti4.service.leader.UnlockLeaderService;
 
-public final class SecretObjectiveHelper {
+@UtilityClass
+public class SecretObjectiveHelper {
 
     public static boolean scoreSO(
             GenericInteractionCreateEvent event, Game game, Player player, int soID, MessageChannel channel) {
+        if (EndedGameScoringGuardService.sendPromptIfGameEnded(game, channel)) {
+            return false;
+        }
         Set<String> alreadyScoredSO = new HashSet<>(player.getSecretsScored().keySet());
         boolean scored = game.scoreSecretObjective(player.getUserID(), soID);
         if (!scored) {
@@ -145,26 +151,29 @@ public final class SecretObjectiveHelper {
                     message2.append(" relic fragments.");
                     MessageHelper.sendMessageToChannel(player.getCorrectChannel(), message2.toString());
                 } else {
-                    String finChecker = player.getFinsFactionCheckerPrefix();
+                    String factionChecker = player.factionButtonChecker();
                     List<Button> purgeFragButtons = new ArrayList<>();
                     if (player.getCrf() > 0) {
-                        Button transact = Buttons.blue(finChecker + "purge_Frags_CRF_1", "Purge 1 Cultural Fragment");
+                        Button transact =
+                                Buttons.blue(factionChecker + "purge_Frags_CRF_1", "Purge 1 Cultural Fragment");
                         purgeFragButtons.add(transact);
                     }
                     if (player.getIrf() > 0) {
                         Button transact =
-                                Buttons.green(finChecker + "purge_Frags_IRF_1", "Purge 1 Industrial Fragment");
+                                Buttons.green(factionChecker + "purge_Frags_IRF_1", "Purge 1 Industrial Fragment");
                         purgeFragButtons.add(transact);
                     }
                     if (player.getHrf() > 0) {
-                        Button transact = Buttons.red(finChecker + "purge_Frags_HRF_1", "Purge 1 Hazardous Fragment");
+                        Button transact =
+                                Buttons.red(factionChecker + "purge_Frags_HRF_1", "Purge 1 Hazardous Fragment");
                         purgeFragButtons.add(transact);
                     }
                     if (player.getUrf() > 0) {
-                        Button transact = Buttons.gray(finChecker + "purge_Frags_URF_1", "Purge 1 Frontier Fragment");
+                        Button transact =
+                                Buttons.gray(factionChecker + "purge_Frags_URF_1", "Purge 1 Frontier Fragment");
                         purgeFragButtons.add(transact);
                     }
-                    Button transact2 = Buttons.green(finChecker + "deleteButtons", "Done Purging");
+                    Button transact2 = Buttons.green(factionChecker + "deleteButtons", "Done Purging");
                     purgeFragButtons.add(transact2);
 
                     MessageHelper.sendMessageToChannelWithButtons(
@@ -224,7 +233,7 @@ public final class SecretObjectiveHelper {
         return Helper.checkEndGame(game, player);
     }
 
-    public static void showAll(Player player, Player player_, Game game) {
+    public static void showAll(Player player, Player player2, Game game) {
         StringBuilder sb = new StringBuilder();
         sb.append("Game: ").append(game.getName()).append('\n');
         sb.append("Player: ").append(player.getUserName()).append('\n');
@@ -235,11 +244,11 @@ public final class SecretObjectiveHelper {
             sb.append(SecretObjectiveInfoService.getSecretObjectiveRepresentation(id))
                     .append('\n');
         }
-        MessageHelper.sendMessageToPlayerCardsInfoThread(player_, sb.toString());
+        MessageHelper.sendMessageToPlayerCardsInfoThread(player2, sb.toString());
         MessageHelper.sendMessageToPlayerCardsInfoThread(
                 player,
                 "All secret objectives in your hand have been shown to "
-                        + (game.isFowMode() ? "someone" : player_.getRepresentationNoPing()) + ".");
+                        + (game.isFowMode() ? "someone" : player2.getRepresentationNoPing()) + ".");
     }
 
     public static List<Button> getUnscoredSecretObjectiveButtons(Player player) {

@@ -12,6 +12,9 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import org.apache.commons.lang3.function.Consumers;
 import ti4.ResourceHelper;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.DreamButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.Iron.IronUnitsHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.zephyrion.ZephyrionBountyButtonHandler;
 import ti4.game.Game;
 import ti4.game.Player;
 import ti4.game.Tile;
@@ -25,6 +28,7 @@ import ti4.helpers.ButtonHelperFactionSpecific;
 import ti4.helpers.DisasterWatchHelper;
 import ti4.helpers.FoWHelper;
 import ti4.helpers.Helper;
+import ti4.helpers.StringHelper;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitState;
 import ti4.helpers.Units.UnitType;
@@ -196,6 +200,13 @@ public class DestroyUnitService {
             case Infantry -> capturing.addAll(CaptureUnitService.listCapturingMechPlayers(game, allUnits, unit));
             case Mech -> {
                 handleSelfAssemblyRoutines(player, totalAmount, game);
+                if (player.hasUnit("iron_mech") || player.hasUnit("iron_mech2")) {
+                    IronUnitsHandler.resolveRiptideDestroy(event, game, player, unit);
+                }
+                if (player.hasUnit("dream_mech")) {
+                    DreamButtonHandler.offerRecurringMechButtons(
+                            event, game, player, totalAmount, unit.uh().getName(), unit.unitKey());
+                }
                 if (player.hasUnit("mykomentori_mech") || player.hasTech("tf-specops")) {
                     for (int x = 0; x < totalAmount; x++) {
                         ButtonHelper.rollMykoMechRevival(game, player);
@@ -263,7 +274,7 @@ public class DestroyUnitService {
                                 .contains(player.getHomeSystemTile())) {
                     List<Button> buttons = new ArrayList<>();
                     buttons.add(Buttons.green(
-                            player.getFinsFactionCheckerPrefix() + "useNekroNullRef",
+                            player.factionButtonChecker() + "useNekroNullRef",
                             "Use Null Reference (Upon Each Destroy)",
                             FactionEmojis.Nekro));
                     buttons.add(Buttons.red("deleteButtons", "Decline", FactionEmojis.Nekro));
@@ -329,6 +340,19 @@ public class DestroyUnitService {
                                 + "\n-# If this was a mistake, readjust the limit with `/game set_unit_cap`.");
             }
         }
+        if (player != null) {
+            String unitTypeString =
+                    unit.unitKey().unitType().humanReadableName().toLowerCase();
+            Player activePlayer = game.getActivePlayer();
+            if (!game.getStoredValue("bounties" + player.getFaction() + unitTypeString)
+                            .isEmpty()
+                    && activePlayer != null
+                    && activePlayer.hasAbility("marked_prey")
+                    && !activePlayer.equals(player)) {
+                ZephyrionBountyButtonHandler.claimBounty(
+                        game, activePlayer, player, unit.unitKey().unitType(), combat);
+            }
+        }
     }
 
     private static void handleSelfAssemblyRoutines(Player player, int min, Game game) {
@@ -339,7 +363,7 @@ public class DestroyUnitService {
             MessageHelper.sendMessageToChannel(
                     player.getCorrectChannel(),
                     player.getRepresentation()
-                            + " you gained " + min + " trade good" + (min == 1 ? "" : "s") + " (" + player.getTg()
+                            + " you gained " + StringHelper.pluralize(min, "trade good") + " (" + player.getTg()
                             + "->" + (player.getTg() + min)
                             + ") from _Self-Assembly Routines_ because of " + min + " of your mechs dying."
                             + " This is a mandatory gain" + (min > 1 ? ", and happens 1 trade good at a time" : "")

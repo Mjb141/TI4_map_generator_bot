@@ -69,13 +69,13 @@ public class TeHelperGeneral {
         }
     }
 
-    @ButtonHandler("expeditionInfo")
+    @ButtonHandler(value = "expeditionInfo", save = false)
     private static void expeditionInfo(ButtonInteractionEvent event, Game game, Player player) {
         String info = game.getExpeditions().printExpeditionInfo(game, player);
         MessageHelper.sendMessageToChannel(event.getMessageChannel(), info);
     }
 
-    @ButtonHandler("expeditionInfoAndButtons")
+    @ButtonHandler(value = "expeditionInfoAndButtons", save = false)
     private static void expeditionInfoWithButtons(ButtonInteractionEvent event, Game game, Player player) {
         String info = game.getExpeditions().printExpeditionInfo(game, player);
         List<Button> butts = game.getExpeditions().getRemainingExpeditionButtons(player);
@@ -137,7 +137,7 @@ public class TeHelperGeneral {
         } else if ((matcher = Pattern.compile(part2).matcher(buttonID)).matches()) {
             String pos = matcher.group("pos");
             Tile tile = game.getTileByPosition(pos);
-            String prefix = player.getFinsFactionCheckerPrefix() + "placeThundersEdge_" + pos + "_";
+            String prefix = player.factionButtonChecker() + "placeThundersEdge_" + pos + "_";
 
             int most = exp.getMostCompleteByAny();
             newMessage = player.getRepresentation() + ", you are placing place Thunder's Edge in "

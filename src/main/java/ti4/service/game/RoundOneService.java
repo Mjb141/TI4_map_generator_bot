@@ -9,6 +9,7 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.utils.FileUpload;
 import ti4.ResourceHelper;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.lunarium.LunariumAbilityButtonHandler;
 import ti4.game.Game;
 import ti4.game.Leader;
 import ti4.game.Planet;
@@ -28,7 +29,7 @@ import ti4.service.leader.UnlockLeaderService;
 @UtilityClass
 public class RoundOneService {
 
-    public static void RoundOne(GenericInteractionCreateEvent event, Game game) {
+    public static void roundOne(GenericInteractionCreateEvent event, Game game) {
         if (!game.isFowMode()) {
             StringBuilder message =
                     new StringBuilder("Here are the quick reference cards for the factions in this game.");
@@ -135,6 +136,10 @@ public class RoundOneService {
                     || player.hasAbility("collateralized_loans")
                     || player.hasAbility("binding_debts")) {
                 game.setDebtPoolIcon(Constants.VADEN_DEBT_POOL, MiscEmojis.SharkLoan.toString());
+            }
+
+            if (player.hasAbility("initiation")) {
+                LunariumAbilityButtonHandler.setFactionSheetCCs(game, player, 1);
             }
 
             if (player.hasAbility("questing_prince")) {

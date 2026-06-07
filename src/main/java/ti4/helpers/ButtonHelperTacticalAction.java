@@ -10,6 +10,9 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.DreamButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.netrunners.NetrunnersAbilitiesHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.netrunners.NetrunnersUnitsHandler;
 import ti4.discord.interactions.commands.tokens.AddTokenCommand;
 import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.game.Game;
@@ -28,6 +31,7 @@ import ti4.model.UnitModel;
 import ti4.service.agenda.IsPlayerElectedService;
 import ti4.service.breakthrough.EidolonMaximumService;
 import ti4.service.breakthrough.VoidTetherService;
+import ti4.service.combat.CombatRollType;
 import ti4.service.combat.StartCombatService;
 import ti4.service.emoji.FactionEmojis;
 import ti4.service.emoji.MiscEmojis;
@@ -37,7 +41,6 @@ import ti4.service.fow.FOWPlusService;
 import ti4.service.fow.LoreService;
 import ti4.service.fow.RiftSetModeService;
 import ti4.service.leader.CommanderUnlockCheckService;
-import ti4.service.statistics.round.RoundStatsTracker;
 import ti4.service.tactical.TacticalActionService;
 import ti4.service.turn.StartTurnService;
 import ti4.service.unit.CheckUnitContainmentService;
@@ -120,12 +123,15 @@ public final class ButtonHelperTacticalAction {
             }
             if (game.isWarfareAction()) {
                 Button redistro = Buttons.blue(
-                        player.finChecker() + "redistributeCCButtons_deleteThisButton", "Redistribute Command Tokens");
+                        player.factionButtonChecker() + "redistributeCCButtons_deleteThisButton",
+                        "Redistribute Command Tokens");
                 String warfareDone = player.getRepresentationUnfogged()
                         + ", your **Warfare** action is finished, you may redistribute your command tokens again.";
                 MessageHelper.sendMessageToChannelWithButton(player.getCorrectChannel(), warfareDone, redistro);
             }
-            RoundStatsTracker.finalizeTactical(game, player);
+            if (player.hasAbility("dream_nexus")) {
+                DreamButtonHandler.offerLiturgyButtons(event, game, player);
+            }
             resetStoredValuesForTacticalAction(game);
         }
     }
@@ -227,7 +233,7 @@ public final class ButtonHelperTacticalAction {
                 if (FoWHelper.playerHasUnitsInSystem(p2, tile)) {
                     List<Button> buttons = new ArrayList<>();
                     buttons.add(Buttons.green(
-                            player.getFinsFactionCheckerPrefix() + "getACFrom_" + p2.getFaction(),
+                            player.factionButtonChecker() + "getACFrom_" + p2.getFaction(),
                             "Take AC from " + p2.getColor()));
                     MessageHelper.sendMessageToChannel(
                             player.getCorrectChannel(),
@@ -335,15 +341,22 @@ public final class ButtonHelperTacticalAction {
                 MessageHelper.sendMessageToChannel(
                         player.getCorrectChannel(),
                         title
-                                + "There " + (playersWithPds2.size() == 1 ? "is " : "are ") + playersWithPds2.size()
-                                + " player" + (playersWithPds2.size() == 1 ? "" : "s")
+                                + "There " + (playersWithPds2.size() == 1 ? "is " : "are ")
+                                + StringHelper.pluralize(playersWithPds2.size(), "player")
                                 + " with Space Cannon Offence coverage in this system.\n"
                                 + "Please resolve those before continuing, or float the window if irrelevant.");
             }
-            List<Button> spaceCannonButtons = StartCombatService.getSpaceCannonButtons(game, player, tile);
-            spaceCannonButtons.add(
-                    Buttons.red("declinePDS_" + tile.getTileID() + "_" + player.getFaction(), "Decline PDS"));
             for (Player playerWithPds : playersWithPds2) {
+                List<Button> spaceCannonButtons = StartCombatService.getSpaceCannonButtons(game, player, tile);
+                spaceCannonButtons.add(
+                        Buttons.red("declinePDS_" + tile.getTileID() + "_" + player.getFaction(), "Decline PDS"));
+                if (game.getRealPlayers().stream().anyMatch(player_ -> player_.hasAbility("control_network"))
+                        && (game.getRealPlayers().stream().noneMatch(player_ -> player_.hasUnit("netrunners_flagship"))
+                                || !NetrunnersUnitsHandler.empBlocksSpaceCannonAgainstOpponent(
+                                        game, playerWithPds, tile, CombatRollType.SpaceCannonOffence))) {
+                    spaceCannonButtons.addAll(NetrunnersAbilitiesHandler.getControlNetworkSpaceCannonButtons(
+                            game, playerWithPds, tile, CombatRollType.SpaceCannonOffence, "space"));
+                }
                 MessageHelper.sendMessageToChannelWithButtons(
                         playerWithPds.getCorrectChannel(),
                         title + playerWithPds.getRepresentationUnfogged() + ", you have SPACE CANNON coverage in "
@@ -389,15 +402,12 @@ public final class ButtonHelperTacticalAction {
         game.removeStoredValue("absolLux");
         game.removeStoredValue("mentakHero");
         game.removeStoredValue("ghostagent_active");
+        DreamButtonHandler.clearDreamAgentAnomaly(game);
 
         game.getTacticalActionDisplacement().clear();
-        for (Player player : game.getRealPlayers()) {
-            RoundStatsTracker.clearTacticalMarkers(game, player);
-        }
     }
 
     public static void beginTacticalAction(Game game, Player player) {
-        RoundStatsTracker.markTacticalStart(game, player);
         boolean prefersDistanceBasedTacticalActions =
                 UserSettingsManager.get(player.getUserID()).isPrefersDistanceBasedTacticalActions();
         if (!game.isFowMode() && game.getRingCount() < 5 && prefersDistanceBasedTacticalActions) {
@@ -411,6 +421,11 @@ public final class ButtonHelperTacticalAction {
             }
             List<Button> ringButtons = ButtonHelper.getPossibleRings(player, game);
             MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message, ringButtons);
+        }
+        // Offer the Dreaming Throne promissory 'Visions' buttons
+        if (!"dream".equalsIgnoreCase(player.getFaction())
+                && player.getPromissoryNotes().containsKey("bepndream")) {
+            DreamButtonHandler.offerVisionsPromissoryAtTacticalStart(game, player);
         }
     }
 
@@ -499,7 +514,7 @@ public final class ButtonHelperTacticalAction {
         if (FOWPlusService.isVoid(game, pos)) {
             tile = FOWPlusService.voidTile(pos);
         }
-        StringBuilder message = new StringBuilder(player.getRepresentationUnfogged() + " activated "
+        StringBuilder message = new StringBuilder(player.getRepresentationNoPing() + " activated "
                 + tile.getRepresentationForButtons(game, player) + ".");
 
         if (!game.isFowMode()) {
@@ -558,7 +573,7 @@ public final class ButtonHelperTacticalAction {
                 if (playerWithPds == player) {
                     continue;
                 }
-                mentions.add(playerWithPds.getRepresentation());
+                mentions.add(playerWithPds.getRepresentationNoPing());
             }
             if (!mentions.isEmpty()) {
                 message.append('\n')
@@ -663,7 +678,7 @@ public final class ButtonHelperTacticalAction {
                 }
                 if (!has || !magenPlayer.hasTech("md")) continue;
 
-                String id = magenPlayer.finChecker() + "useMagenDefense_" + activeSystem.getPosition();
+                String id = magenPlayer.factionButtonChecker() + "useMagenDefense_" + activeSystem.getPosition();
                 Button useMagen = Buttons.red(id, "Use Magen Defense Grid", TechEmojis.WarfareTech);
                 String magenMsg = magenPlayer.getRepresentation()
                         + " you can, and must, use _Magen Defense Grid_ to place an infantry with each of your structures in the active system.";
@@ -672,9 +687,10 @@ public final class ButtonHelperTacticalAction {
 
             for (Player btb : game.getRealPlayers()) {
                 if (!btb.ownsUnit("tk-blacktrenchbulwark")) continue;
-                if (!activeSystem.containsPlayersUnitsWithModelCondition(btb, UnitModel::getIsStructure)) continue;
+                if (!ButtonHelper.getTilesOfPlayersSpecificUnits(game, btb, UnitType.Pds)
+                        .contains(activeSystem)) continue;
 
-                String id = btb.finChecker() + "useMagenDefense_" + activeSystem.getPosition();
+                String id = btb.factionButtonChecker() + "useMagenDefense_" + activeSystem.getPosition();
                 Button use = Buttons.red(id, "Use Black Trench Bulwark", UnitEmojis.pds);
                 String msg = btb.getRepresentation()
                         + " you can, and must, use _Black Trench Bulwark_ to place an infantry with each of your pds in the active system.";
@@ -683,16 +699,17 @@ public final class ButtonHelperTacticalAction {
 
             for (Player archive : game.getRealPlayers()) {
                 if (!archive.ownsUnit("tk-visionariaarchive")) continue;
-                if (activeSystem.getSpaceUnitHolder().getUnitCount(UnitType.Spacedock, archive) == 0) continue;
+                if (!ButtonHelper.getTilesOfPlayersSpecificUnits(game, archive, UnitType.Spacedock)
+                        .contains(activeSystem)) continue;
 
-                String id = player.finChecker() + "useVisionariaArchive_" + archive.getColor();
+                String id = player.factionButtonChecker() + "useVisionariaArchive_" + archive.getColor();
                 Button use = Buttons.red(id, "Use Visionaria Archive", MiscEmojis.tf_ability);
                 String msg = player.getRepresentation()
                         + " you can use _Visionaria Archive_ and spend 3 trade goods to draw 1 ability.";
                 if (player != archive) {
                     msg += " If you do, " + archive.getRepresentationNoPing() + " will also draw 1 ability.";
                 }
-                msg += "-# You currently have " + player.getTg() + " trade goods.";
+                msg += "\n-# You currently have " + player.getTg() + " trade goods.";
 
                 List<Button> buttons = List.of(use, Buttons.DONE_DELETE_BUTTONS.withLabel("Decline"));
                 MessageHelper.sendMessageToChannelWithButtonsAndNoUndo(archive.getCorrectChannel(), msg, buttons);
@@ -700,10 +717,15 @@ public final class ButtonHelperTacticalAction {
 
             for (Player remnant : game.getRealPlayers()) {
                 if (!remnant.ownsUnit("tk-saturnremnant")) continue;
-
+                if (!ButtonHelper.getTilesOfPlayersSpecificUnits(game, remnant, UnitType.Pds)
+                                .contains(activeSystem)
+                        || FoWHelper.otherPlayersHaveShipsInSystem(remnant, activeSystem, game)) {
+                    continue;
+                }
                 UnitKey key = Units.getUnitKey(UnitType.Cruiser, remnant.getColor());
                 if (ButtonHelperFactionSpecific.vortexButtonAvailable(game, key)) {
-                    String id = remnant.finChecker() + "placeOneNDone_skipbuild_cruiser_" + activeSystem.getPosition();
+                    String id = remnant.factionButtonChecker() + "placeOneNDone_skipbuild_cruiser_"
+                            + activeSystem.getPosition();
                     String label = "Deploy Saturn Remnant";
                     Button deploy = Buttons.green(id, label, FactionEmojis.Titans);
                     String msg = remnant.getRepresentationUnfogged()
@@ -716,7 +738,7 @@ public final class ButtonHelperTacticalAction {
             for (Player flaah : game.getRealPlayers()) {
                 if (ButtonHelper.doesPlayerHaveUnitHere("tk-flaahhyphae", flaah, activeSystem)) {
                     List<Button> buttons = new ArrayList<>();
-                    String buildID = flaah.finChecker() + "umbatTile_" + activeSystem.getPosition();
+                    String buildID = flaah.factionButtonChecker() + "umbatTile_" + activeSystem.getPosition();
                     int amt = activeSystem.getSpaceUnitHolder().getUnitCount(UnitType.Carrier, flaah) * 2;
                     buttons.add(
                             Buttons.green(buildID, "Build " + amt + " units with Flaah Hyphae", FactionEmojis.Arborec));
@@ -734,8 +756,8 @@ public final class ButtonHelperTacticalAction {
                             || tokens.contains(Constants.TOKEN_BREACH_INACTIVE))) {
                 String label = tokens.contains(Constants.TOKEN_BREACH_ACTIVE) ? "inactive" : "active";
                 List<Button> buttons = new ArrayList<>();
-                buttons.add(Buttons.green(
-                        player.getFinsFactionCheckerPrefix() + "flipBreach_" + pos, "Flip breach to " + label));
+                buttons.add(
+                        Buttons.green(player.factionButtonChecker() + "flipBreach_" + pos, "Flip breach to " + label));
                 buttons.add(Buttons.DONE_DELETE_BUTTONS.withLabel("No Thanks"));
                 String msg = player.getRepresentation()
                         + ", you may use the buttons to flip the Breach in the active system.";
@@ -804,11 +826,17 @@ public final class ButtonHelperTacticalAction {
                 }
             }
         }
+        if (!game.isL1Hero()
+                && !DreamButtonHandler.getDreamAgentAnomalyTiles(game).isEmpty()) {
+            if (player.hasUnexhaustedLeader("dreamagent")) {
+                DreamButtonHandler.offerDreamAgentButtons(game, player, player);
+            }
+        }
 
         // Send buttons to move
         MessageHelper.sendMessageToChannelWithButtons(
                 player.getCorrectChannel(),
-                player.getRepresentation() + ", please choose the first system you wish to move from.",
+                player.getRepresentationNoPing() + ", please choose the first system you wish to move from.",
                 systemButtons);
 
         // Resolve other abilities
@@ -845,7 +873,7 @@ public final class ButtonHelperTacticalAction {
     }
 
     public static List<Button> getButtonsForAllUnitsInSystem(Player player, Game game, Tile tile, String moveOrRemove) {
-        String finChecker = "FFCC_" + player.getFaction() + "_";
+        String factionChecker = player.factionButtonChecker();
         List<Button> buttons = new ArrayList<>();
         List<UnitType> movableFromPlanets = new ArrayList<>(List.of(UnitType.Infantry, UnitType.Mech));
         if (player.hasTech("ffac2") || player.hasUnit("tf-floatingfactory") || player.hasUnit("saar_spacedock")) {
@@ -898,10 +926,11 @@ public final class ButtonHelperTacticalAction {
 
         if ("Remove".equalsIgnoreCase(moveOrRemove)) {
             buttons.add(Buttons.gray(
-                    finChecker + "unitTacticalRemove_" + tile.getPosition() + "_removeAllShips", "Remove All Ships"));
+                    factionChecker + "unitTacticalRemove_" + tile.getPosition() + "_removeAllShips",
+                    "Remove All Ships"));
             buttons.add(Buttons.gray(
-                    finChecker + "unitTacticalRemove_" + tile.getPosition() + "_removeAll", "Remove All Units"));
-            buttons.add(Buttons.blue(finChecker + "doneRemoving", "Done removing units"));
+                    factionChecker + "unitTacticalRemove_" + tile.getPosition() + "_removeAll", "Remove All Units"));
+            buttons.add(Buttons.blue(factionChecker + "doneRemoving", "Done removing units"));
             return buttons;
         } else {
             if (game.playerHasLeaderUnlockedOrAlliance(player, "tneliscommander")
@@ -911,10 +940,10 @@ public final class ButtonHelperTacticalAction {
                         "Use Tnelis Commander",
                         FactionEmojis.tnelis));
 
-            buttons.add(
-                    Buttons.gray(finChecker + "unitTacticalMove_" + tile.getPosition() + "_moveAll", "Move All Units"));
+            buttons.add(Buttons.gray(
+                    factionChecker + "unitTacticalMove_" + tile.getPosition() + "_moveAll", "Move All Units"));
             buttons.add(Buttons.blue(
-                    finChecker + "doneWithOneSystem_" + tile.getPosition(), "Done Moving Units From This System"));
+                    factionChecker + "doneWithOneSystem_" + tile.getPosition(), "Done Moving Units From This System"));
         }
 
         Map<String, Map<UnitKey, List<Integer>>> displacedUnits = game.getTacticalActionDisplacement();
@@ -936,8 +965,8 @@ public final class ButtonHelperTacticalAction {
             }
         }
         if (!displacedUnits.isEmpty()) {
-            Button validTile2 =
-                    Buttons.green(finChecker + "unitTacticalMove_" + tile.getPosition() + "_reverseAll", "Undo All");
+            Button validTile2 = Buttons.green(
+                    factionChecker + "unitTacticalMove_" + tile.getPosition() + "_reverseAll", "Undo All");
             buttons.add(validTile2);
         }
         return buttons;

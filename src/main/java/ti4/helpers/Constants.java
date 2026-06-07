@@ -57,6 +57,7 @@ public final class Constants {
     public static final String DRAFT_QUEUE = "franken_items_to_draft";
     public static final String SHOW_GAME = "show_game";
     public static final String ONLY_LAST_MONTH = "only_last_month";
+    public static final String LAST_N_DAYS = "last_n_days";
     public static final String FOWGM = "fowgm";
     public static final String FRACTURE = "fracture";
     public static final String TEMPORARY_PING_DISABLE = "temporary_ping_disable";
@@ -110,9 +111,6 @@ public final class Constants {
     public static final String HOMEBREW_SC_MODE = "homebrew_sc_mode";
     public static final String SPIN_MODE = "spin_mode";
     public static final String BUTTON_PRESS_COUNT = "button_press_count";
-    public static final String SLASH_COMMAND_COUNT = "slash_command_count";
-    public static final String SLASH_COMMAND_STRING = "slash_command_string";
-    public static final String ACS_SABOD = "acs_sabod";
     public static final String ABSOL_MODE = "absol_mode";
     public static final String PROMISES_PROMISES = "promises_promises";
     public static final String FLAGSHIPPING = "flagshipping";
@@ -187,7 +185,7 @@ public final class Constants {
     public static final String JOIN = "join";
     public static final String START_SCENARIO = "start_scenario";
     public static final String ADD = "add";
-    public static final String COMPARE_AFK_TIMES = "compare_afk_times";
+    public static final String COMPARE_ACTIVITY_TIMES = "compare_activity_times";
     public static final String REPLACE = "replace";
     public static final String LEAVE = "leave";
     public static final String REMOVE = "remove";
@@ -528,6 +526,7 @@ public final class Constants {
     public static final String CURRENT_ACDRAWSTATUS_INFO = "current_acdrawstatus_info";
     public static final String AGENDA_VOTE_INFO = "agenda_vote_info";
     public static final String CHECK_REACTS_INFO = "check_reacts_info";
+    public static final String GAME_STATS = "game_stats";
     public static final String PLAYER_STORED_VALUES = "player_stored_values";
     public static final String THALNOS_UNITS = "thalnos_units";
     public static final String DISPLACED_UNITS_SYSTEM = "displaced_units_system";
@@ -840,6 +839,7 @@ public final class Constants {
     public static final String REVEAL_STAGE2 = "po_reveal_stage2";
     public static final String SCORE_OBJECTIVE = "po_score";
     public static final String UNSCORE_OBJECTIVE = "po_unscore";
+    public static final String UNREVEAL_OBJECTIVE = "po_unreveal";
     public static final String SHUFFLE_OBJECTIVE_BACK = "po_shuffle_back";
     public static final String PO_ID = "public_id";
     public static final String PO_NAME = "public_name";
@@ -1061,6 +1061,7 @@ public final class Constants {
     public static final String INCLUDE_OPTIONS = "include_options";
     public static final String CARDS_INFO = "cards_info";
     public static final String FRANKEN = "franken";
+    public static final String FRANKENDRAZ = "frankendraz";
     public static final String SHOW_GAME_AS_PLAYER = "show_game_as";
     public static final String CHECK_PRIVATE_COMMUNICATIONS = "check_private_communications";
 
@@ -1070,6 +1071,8 @@ public final class Constants {
     public static final String MILTY_DRAFT_SETTINGS = "milty_draft_settings";
     public static final String DRAFT_MANAGER = "draft_manager";
     public static final String DRAFT_SYSTEM_SETTINGS = "draft_system_settings";
+    public static final String FRANKEN_DRAFT_SETTINGS = "franken_draft_settings";
+    public static final String BASE_GAME_MINI_MILTY_SETTINGS = "base_game_mini_milty_settings";
     public static final String DRAFT = "draft";
 
     // groups
@@ -1268,10 +1271,13 @@ public final class Constants {
     public static final String NO_FRACTURE = "no_fracture";
     public static final String CALL_OF_THE_VOID_MODE = "call_of_the_void_mode";
     public static final String WILD_WILD_GALAXY_MODE = "wild_wild_galaxy_mode";
+    public static final String FEAST_OR_FAMINE_MODE = "feast_or_famine_mode";
     public static final String STELLAR_ATOMICS_MODE = "stellar_atomics_mode";
     public static final String NO_SWAP_MODE = "no_swap_mode";
     public static final String VEILED_HEART_MODE = "veiled_heart_mode";
     public static final String LIMITED_WHISPERS_MODE = "limited_whispers_mode";
+    public static final String WHISPERS_ENABLED = "whispers_enabled";
+    public static final String WHISPERS_DISABLED = "whispers_disabled";
     public static final String ORDINIAN_C1_MODE = "ordinian_c1_mode";
     public static final String LIBERATION_C4_MODE = "liberation_c4_mode";
     public static final String FAKE_COMMANDERS = "fake_commanders";
@@ -1327,6 +1333,7 @@ public final class Constants {
     public static final String SPLICE_TYPE = "splice_type";
     public static final String REVERSE_SPLICE = "reverse_splice";
     public static final String START_NEW_SPLICE = "start_new_splice";
+    public static final String ADD_TO_SPLICE = "add_to_splice";
     public static final String GALVANIZE = "galvanize";
     public static final String FIX_COLORS = "fix_colors";
     public static final String DRAW_RANDOM_UNIT = "draw_random_unit";
@@ -1348,6 +1355,7 @@ public final class Constants {
     public static final String FACTION_RECORD_OF_TECH = "faction_record_of_tech";
     public static final String FACTION_RECORD_OF_SCPICK = "faction_record_of_scpick";
     public static final String FACTION_TOP_COLORS = "faction_top_colors";
+    public static final String ACTION_CARD_STATS = "action_card_stats";
     public static final String SPENDS = "spends";
     public static final String TOP_LIMIT = "top_limit";
     public static final String MINIMUM_NUMBER_OF_TURNS = "minimum_number_of_turns";
@@ -1544,6 +1552,7 @@ public final class Constants {
     public static final String LAZAX = "lazax";
     public static final String LAZAX_MY_POINTS = "my_points";
     public static final String LAZAX_TOP_100 = "top_100";
+    public static final String LAZAX_DELEGATION_LEADERBOARD = "delegation_leaderboard";
     public static final String PUBLIC = "public";
     public static final String IS_FRACTURED = "is_fractured";
     public static final String SHOW_GAME_IDS = "show_game_ids";

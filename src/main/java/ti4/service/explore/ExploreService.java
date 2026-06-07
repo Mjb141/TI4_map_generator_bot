@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.StringUtils;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.Iron.IronBreakthroughHandler;
 import ti4.discord.interactions.commands.tokens.AddTokenCommand;
 import ti4.game.Game;
 import ti4.game.Leader;
@@ -39,6 +40,7 @@ import ti4.helpers.FoWHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.RandomHelper;
 import ti4.helpers.RelicHelper;
+import ti4.helpers.StringHelper;
 import ti4.helpers.Units;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
@@ -72,7 +74,7 @@ public class ExploreService {
             String planetName,
             String drawColor,
             Player player,
-            boolean NRACheck,
+            boolean nraCheck,
             Game game,
             int numExplores,
             boolean ownerShipOverride) {
@@ -191,7 +193,7 @@ public class ExploreService {
 
         if (player.hasAbility("distant_suns")) {
             if (Helper.mechCheck(planetName, game, player)) {
-                if (!NRACheck) {
+                if (!nraCheck) {
                     if (player.hasTech("pfa")) { // Pre-Fab Arcologies
                         PlanetService.refreshPlanet(player, planetName);
                         MessageHelper.sendMessageToChannel(
@@ -309,7 +311,7 @@ public class ExploreService {
             if (unitHolder.getUnitCount(Units.UnitType.Mech, player.getColor()) > 0
                     || unitHolder.getUnitCount(Units.UnitType.Spacedock, player.getColor()) > 0
                     || unitHolder.getUnitCount(Units.UnitType.Pds, player.getColor()) > 0) {
-                if (!NRACheck) {
+                if (!nraCheck) {
                     String message = "Please decide whether or not to use your " + FactionEmojis.gledge
                             + "**Deep Mining** (gain 1 trade good instead of exploring) ability.";
                     Button resolveExplore1 = Buttons.green("deep_mining_accept", "Gain 1 Trade Good");
@@ -823,13 +825,12 @@ public class ExploreService {
                 resolveExplore(event, exploreID, tile, mirageID, exploredMessage, player, game);
             }
             case "fb1", "fb2", "fb3", "fb4" -> {
-                message = new StringBuilder(
-                        "Resolve _Functioning Base_:\n-# You currently have " + player.getTg() + " trade good"
-                                + (player.getTg() == 1 ? "" : "s") + ", "
-                                + player.getCommoditiesRepresentation() + " commodit"
-                                + (player.getCommodities() == 1 ? "y" : "ies") + ", and "
-                                + player.getActionCards().size() + " action card"
-                                + (player.getActionCards().size() == 1 ? "" : "s") + ".");
+                message = new StringBuilder("Resolve _Functioning Base_:\n-# You currently have "
+                        + StringHelper.pluralize(player.getTg(), "trade good") + ", "
+                        + player.getCommoditiesRepresentation() + " commodit"
+                        + (player.getCommodities() == 1 ? "y" : "ies") + ", and "
+                        + player.getActionCards().size() + " action card"
+                        + (player.getActionCards().size() == 1 ? "" : "s") + ".");
                 Button getACButton = Buttons.green(
                         "comm_for_AC",
                         "Spend 1 Trade Good or 1 Commodity For 1 Action Card",
@@ -937,8 +938,7 @@ public class ExploreService {
             case "lf1", "lf2", "lf3", "lf4" -> {
                 message = new StringBuilder(
                         player.getRepresentation() + " please resolve _Local Fabricators_:\n-# You currently have "
-                                + player.getTg()
-                                + " trade good" + (player.getTg() == 1 ? "" : "s") + " and "
+                                + StringHelper.pluralize(player.getTg(), "trade good") + " and "
                                 + player.getCommoditiesRepresentation() + " commodit"
                                 + (player.getCommodities() == 1 ? "y" : "ies") + ".");
                 Button getMechButton = Buttons.green(
@@ -1016,6 +1016,9 @@ public class ExploreService {
                 }
                 buttons.add(decline);
                 MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message.toString(), buttons);
+                if (player.hasUnlockedBreakthrough("ironbt")) {
+                    IronBreakthroughHandler.sendIronBtMessage(player, game);
+                }
             }
             case "frln1", "frln2", "frln3" -> {
                 message = new StringBuilder(player.getRepresentation() + ", please resolve _Freelancers_:\n-# "
@@ -1042,6 +1045,9 @@ public class ExploreService {
                 }
                 buttons.add(decline);
                 MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message.toString(), buttons);
+                if (player.hasUnlockedBreakthrough("ironbt")) {
+                    IronBreakthroughHandler.sendIronBtMessage(player, game);
+                }
             }
             case "vfs1", "vfs2", "vfs3" -> {
                 message = new StringBuilder(player.getRepresentation()
@@ -1065,6 +1071,9 @@ public class ExploreService {
                 }
                 buttons.add(decline);
                 MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message.toString(), buttons);
+                if (player.hasUnlockedBreakthrough("ironbt")) {
+                    IronBreakthroughHandler.sendIronBtMessage(player, game);
+                }
             }
             case "warforgeruins" -> {
                 message = new StringBuilder(
@@ -1094,6 +1103,9 @@ public class ExploreService {
                 }
                 buttons.add(decline);
                 MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message.toString(), buttons);
+                if (player.hasUnlockedBreakthrough("ironbt")) {
+                    IronBreakthroughHandler.sendIronBtMessage(player, game);
+                }
             }
             case "seedyspaceport" -> {
                 message = new StringBuilder(player.getRepresentation()
@@ -1134,6 +1146,9 @@ public class ExploreService {
                 buttons.add(decline);
 
                 MessageHelper.sendMessageToChannelWithButtons(event.getMessageChannel(), message.toString(), buttons);
+                if (player.hasUnlockedBreakthrough("ironbt")) {
+                    IronBreakthroughHandler.sendIronBtMessage(player, game);
+                }
             }
             case "hiddenlaboratory" -> {
                 MessageHelper.sendMessageToEventChannel(
@@ -1159,9 +1174,8 @@ public class ExploreService {
                 player.setTg(oldTg + tgGain);
                 MessageHelper.sendMessageToChannel(
                         player.getCorrectChannel(),
-                        player.getFactionEmojiOrColor() + " gained " + tgGain + " trade good"
-                                + (tgGain == 1 ? "" : "s") + " due to the _Forgotten Trade Station_ (" + oldTg + "->"
-                                + player.getTg() + ").");
+                        player.getFactionEmojiOrColor() + " gained " + StringHelper.pluralize(tgGain, "trade good")
+                                + " due to the _Forgotten Trade Station_ (" + oldTg + "->" + player.getTg() + ").");
                 ButtonHelperAbilities.pillageCheck(player, game);
                 ButtonHelperAgents.resolveArtunoCheck(player, tgGain);
             }
@@ -1174,7 +1188,7 @@ public class ExploreService {
             }
             case "suspiciouswreckage" -> {
                 Button button = Buttons.green(
-                        player.getFinsFactionCheckerPrefix() + "resolveDiplomaticPressureStep1",
+                        player.factionButtonChecker() + "resolveDiplomaticPressureStep1",
                         "Resolve Suspicious Wreckage");
                 MessageHelper.sendMessageToChannelWithButton(event.getMessageChannel(), "", button);
                 MessageHelper.sendMessageToChannelWithButton(event.getMessageChannel(), "", button);

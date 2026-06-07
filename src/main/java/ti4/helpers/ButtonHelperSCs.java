@@ -28,6 +28,9 @@ import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
 import ti4.logging.BotLogger;
+import ti4.message.GameMessage;
+import ti4.message.GameMessageManager;
+import ti4.message.GameMessageType;
 import ti4.message.MessageHelper;
 import ti4.model.LeaderModel;
 import ti4.model.PublicObjectiveModel;
@@ -51,7 +54,7 @@ public final class ButtonHelperSCs {
     public static void resolveConstructionPrimaryTE(Game game, Player player) {
         List<Tile> tiles = ButtonHelper.getTilesOfPlayersSpecificUnits(game, player, UnitType.Spacedock);
 
-        String prefix = player.getFinsFactionCheckerPrefix() + "constructionBuild_";
+        String prefix = player.factionButtonChecker() + "constructionBuild_";
         List<Button> buttons = new ArrayList<>();
         tiles.forEach(
                 t -> buttons.add(Buttons.blue(prefix + t.getPosition(), t.getRepresentationForButtons(game, player))));
@@ -209,7 +212,7 @@ public final class ButtonHelperSCs {
         MessageHelper.sendMessageToEventChannelWithEphemeralButtons(event, message, buttons);
         if (player.hasAbility("peace_accords") && !game.isTwilightsFallMode()) {
             List<Button> buttons2 = ButtonHelperAbilities.getXxchaPeaceAccordsButtons(
-                    game, player, event, player.getFinsFactionCheckerPrefix());
+                    game, player, event, player.factionButtonChecker());
             if (!buttons2.isEmpty()) {
                 MessageHelper.sendMessageToChannelWithButtons(
                         player.getCorrectChannel(),
@@ -255,7 +258,7 @@ public final class ButtonHelperSCs {
         game.setStoredValue("originalCCsFor" + player.getFaction(), player.getCCRepresentation());
         String message = player.getRepresentationUnfogged() + ", your current command tokens are "
                 + player.getCCRepresentation() + ". Use buttons to gain command tokens.";
-        Button resetCC = Buttons.gray(player.getFinsFactionCheckerPrefix() + "resetCCs", "Reset Command Tokens");
+        Button resetCC = Buttons.gray(player.factionButtonChecker() + "resetCCs", "Reset Command Tokens");
         List<Button> buttons = Arrays.asList(getTactic, getFleet, getStrat, doneGainingCC, resetCC);
         List<Button> buttons2 = Collections.singletonList(exhaust);
         MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), message, buttons);
@@ -372,9 +375,6 @@ public final class ButtonHelperSCs {
         if (scModel == null) {
             scModel = game.getStrategyCardModelByName("aeterna").orElse(null);
         }
-        if (!player.getFollowedSCs().contains(scModel.getInitiative())) {
-            ButtonHelperFactionSpecific.resolveVadenSCDebt(player, scModel.getInitiative(), game, event);
-        }
         if (!game.getPhaseOfGame().contains("agenda")
                 && !used
                 && (scModel.usesAutomationForSCID("pok8imperial") || scModel.usesAutomationForSCID("tf8"))
@@ -388,6 +388,9 @@ public final class ButtonHelperSCs {
             }
             String message = deductCC(game, player, scNum);
             ReactionService.addReaction(event, game, player, message);
+        }
+        if (!player.getFollowedSCs().contains(scModel.getInitiative())) {
+            ButtonHelperFactionSpecific.resolveVadenSCDebt(player, scModel.getInitiative(), game, event);
         }
         boolean used2 = addUsedSCPlayer(messageID + "so", game, player);
         if (used2) return;
@@ -1309,16 +1312,16 @@ public final class ButtonHelperSCs {
         if (!game.isFowMode()) {
             MessageHelper.sendMessageToChannel(
                     player.getCardsInfoThread(),
-                    "You have " + (limit - ccCount) + " command token" + (limit - ccCount == 1 ? "" : "s")
-                            + " in your reinforcements that you could gain, and " + player.getTg() + " trade good"
-                            + (player.getTg() == 1 ? "" : "s") + " to spend.");
+                    "You have " + StringHelper.pluralize(limit - ccCount, "command token")
+                            + " in your reinforcements that you could gain, and "
+                            + StringHelper.pluralize(player.getTg(), "trade good") + " to spend.");
             MessageHelper.sendMessageToChannelWithButtons(player.getCardsInfoThread(), message, buttons);
         } else {
             MessageHelper.sendMessageToChannel(
                     player.getPrivateChannel(),
-                    "You have " + (limit - ccCount) + " command token" + (limit - ccCount == 1 ? "" : "s")
-                            + " in your reinforcements that you could gain, and " + player.getTg() + " trade good"
-                            + (player.getTg() == 1 ? "" : "s") + " to spend.");
+                    "You have " + StringHelper.pluralize(limit - ccCount, "command token")
+                            + " in your reinforcements that you could gain, and "
+                            + StringHelper.pluralize(player.getTg(), "trade good") + " to spend.");
             MessageHelper.sendMessageToChannelWithButtons(player.getPrivateChannel(), message, buttons);
         }
         // MessageHelper.sendMessageToEventChannelWithEphemeralButtons(event, message, buttons);
@@ -1326,15 +1329,13 @@ public final class ButtonHelperSCs {
         message = player.getRepresentationUnfogged() + ", your current command tokens are "
                 + player.getCCRepresentation() + ". Use buttons to gain command tokens.";
         game.setStoredValue("originalCCsFor" + player.getFaction(), player.getCCRepresentation());
-        Button getTactic =
-                Buttons.green(player.getFinsFactionCheckerPrefix() + "increase_tactic_cc", "Gain 1 Tactic Token");
-        Button getFleet =
-                Buttons.green(player.getFinsFactionCheckerPrefix() + "increase_fleet_cc", "Gain 1 Fleet Token");
+        Button getTactic = Buttons.green(player.factionButtonChecker() + "increase_tactic_cc", "Gain 1 Tactic Token");
+        Button getFleet = Buttons.green(player.factionButtonChecker() + "increase_fleet_cc", "Gain 1 Fleet Token");
         Button getStrat =
-                Buttons.green(player.getFinsFactionCheckerPrefix() + "increase_strategy_cc", "Gain 1 Strategy Token");
-        Button doneGainingCC = Buttons.red(
-                player.getFinsFactionCheckerPrefix() + "deleteButtons_leadership", "Done Gaining Command Tokens");
-        Button resetCC = Buttons.gray(player.getFinsFactionCheckerPrefix() + "resetCCs", "Reset Command Tokens");
+                Buttons.green(player.factionButtonChecker() + "increase_strategy_cc", "Gain 1 Strategy Token");
+        Button doneGainingCC =
+                Buttons.red(player.factionButtonChecker() + "deleteButtons_leadership", "Done Gaining Command Tokens");
+        Button resetCC = Buttons.gray(player.factionButtonChecker() + "resetCCs", "Reset Command Tokens");
         List<Button> buttons2 = Arrays.asList(getTactic, getFleet, getStrat, doneGainingCC, resetCC);
         // MessageHelper.sendMessageToEventChannelWithEphemeralButtons(event, message, buttons2);
         if (!game.isFowMode()) {
@@ -1390,7 +1391,7 @@ public final class ButtonHelperSCs {
                             List<Button> buttonsToRemoveCC = new ArrayList<>();
                             for (Tile tile : ButtonHelper.getTilesWithYourCC(p2, game, event)) {
                                 buttonsToRemoveCC.add(Buttons.green(
-                                        player.getFinsFactionCheckerPrefix() + "removeCCFromBoard_mahactAgent"
+                                        player.factionButtonChecker() + "removeCCFromBoard_mahactAgent"
                                                 + p2.getFaction() + "_" + tile.getPosition(),
                                         tile.getRepresentationForButtons(game, player)));
                             }
@@ -1446,7 +1447,7 @@ public final class ButtonHelperSCs {
             }
         }
         if (setStatus) {
-            player.addFollowedSC(scNum, event);
+            player.addFollowedSC(scNum, event, false);
             suffix = " **" + Helper.getSCName(scNum, game) + "**";
         }
 
@@ -1481,6 +1482,19 @@ public final class ButtonHelperSCs {
             if (game.getStoredValue(key).contains(player.getFaction() + "*")) {
                 game.setStoredValue(key, game.getStoredValue(key).replace(player.getFaction() + "*", ""));
                 Helper.resolveQueue(game);
+            }
+        }
+        int scNum2 = scNum;
+        GameMessage gameMessage = GameMessageManager.getOne(
+                        game.getName(), GameMessageType.STRATEGY_FOLLOW, game.getRound() + "_" + scNum2)
+                .orElse(null);
+        if (gameMessage != null) {
+            ThreadChannel chan = ButtonHelper.getRightStratThread(
+                    game, ButtonHelper.getStratName(ButtonHelper.getStratName(scNum2), game));
+            if (chan != null) {
+                chan.retrieveMessageById(gameMessage.messageId()).queue(mainMessage -> mainMessage
+                        .editMessage(PlayStrategyCardService.getSCFollowSummary(game, scNum2))
+                        .queue());
             }
         }
     }
@@ -1595,8 +1609,8 @@ public final class ButtonHelperSCs {
         ActionCardHelper.drawActionCardsSilent(player, 2);
 
         if (player.hasAbility("contagion")) {
-            List<Button> buttons2 = ButtonHelperAbilities.getKyroContagionButtons(
-                    game, player, event, player.getFinsFactionCheckerPrefix());
+            List<Button> buttons2 =
+                    ButtonHelperAbilities.getKyroContagionButtons(game, player, event, player.factionButtonChecker());
             if (!buttons2.isEmpty()) {
                 MessageHelper.sendMessageToChannelWithButtons(
                         player.getCardsInfoThread(),

@@ -28,13 +28,14 @@ import ti4.game.Player;
 import ti4.game.persistence.GameManager;
 import ti4.game.persistence.ManagedGame;
 import ti4.game.persistence.ManagedPlayer;
-import ti4.helpers.DateTimeHelper;
 import ti4.helpers.SearchGameHelper;
 import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
 import ti4.service.game.CreateGameService;
+import ti4.settings.users.UserSettings;
 import ti4.settings.users.UserSettingsManager;
 import ti4.spring.service.statistics.AverageTurnTimeService;
+import ti4.spring.service.statistics.UserGameInfoService;
 
 @UtilityClass
 public class CreateGameButtonHandler {
@@ -82,7 +83,7 @@ public class CreateGameButtonHandler {
                 .queue();
     }
 
-    @ButtonHandler("editPlayers~MDL")
+    @ButtonHandler(value = "editPlayers~MDL", save = false)
     public static void editPlayers(ButtonInteractionEvent event) {
         String modalID = "signupModal";
         String fieldID = "players";
@@ -120,7 +121,7 @@ public class CreateGameButtonHandler {
                 .queue();
     }
 
-    @ButtonHandler("addSillyName~MDL")
+    @ButtonHandler(value = "addSillyName~MDL", save = false)
     public static void addSillyName(ButtonInteractionEvent event) {
         String modalID = "addSillyNameModal";
         String fieldID = "sillyName";
@@ -134,7 +135,7 @@ public class CreateGameButtonHandler {
         event.replyModal(modal).queue(Consumers.nop(), BotLogger::catchRestError);
     }
 
-    @ButtonHandler("removePlayers~MDL")
+    @ButtonHandler(value = "removePlayers~MDL", save = false)
     public static void removePlayers(ButtonInteractionEvent event) {
         String modalID = "removeSignupModal";
         String fieldID = "players";
@@ -189,15 +190,27 @@ public class CreateGameButtonHandler {
     }
 
     public static String generateMemberListMessage(List<Member> members, String gameFunName) {
+        return generateMemberListMessage(members, gameFunName, true);
+    }
+
+    public static String generateMemberListMessage(List<Member> members, String gameFunName, boolean ping) {
         StringBuilder memberList = new StringBuilder();
 
         if (gameFunName == null || gameFunName.isEmpty()) {
-            memberList.append("## Players Signed Up:\n");
+            if (ping) {
+                memberList.append("## Players Signed Up:\n");
+            } else {
+                memberList.append("## Players:\n");
+            }
         } else {
-            memberList
-                    .append("## Game Fun Name: ")
-                    .append(gameFunName.replace(":", ""))
-                    .append("\n\nPlayers:");
+            if (ping) {
+                memberList
+                        .append("## Game Fun Name: ")
+                        .append(gameFunName.replace(":", ""))
+                        .append("\n\nPlayers Signed Up:");
+            } else {
+                memberList.append(gameFunName.replace(":", "")).append("\n\nPlayers:");
+            }
         }
 
         StringBuilder activityList = new StringBuilder();
@@ -207,11 +220,8 @@ public class CreateGameButtonHandler {
                 AverageTurnTimeService.getBean().getUserIdsToAverageTurnTimes(userIds);
         int playerNumber = 1;
         for (Member member : members) {
-            memberList
-                    .append('\n')
-                    .append(playerNumber)
-                    .append(". ")
-                    .append(member.getUser().getAsMention());
+            String mention = ping ? member.getUser().getAsMention() : member.getEffectiveName();
+            memberList.append('\n').append(playerNumber).append(". ").append(mention);
 
             ManagedPlayer managedPlayer = GameManager.getManagedPlayer(member.getId());
             int ongoingAmount = countOngoingGamesThatAffectJoinLimit(managedPlayer);
@@ -226,16 +236,19 @@ public class CreateGameButtonHandler {
             } else {
                 memberList.append(' ').append(completedGames).append(" games completed. ");
             }
-            if (userIdsToAverageTurnTimes.containsKey(member.getUser().getId())) {
-                long averageTurnTime =
-                        userIdsToAverageTurnTimes.get(member.getUser().getId());
-                memberList
-                        .append(" `")
-                        .append(DateTimeHelper.getTimeRepresentationToSeconds(averageTurnTime))
-                        .append("` average turn time.");
+            List<Integer> threeFastestDays = UserGameInfoService.get()
+                    .getUsersThreeFastestDaysToComplete6PlayerGames(
+                            member.getUser().getId());
+            if (!threeFastestDays.isEmpty()) {
+                memberList.append(" (");
+                for (int i = 0; i < threeFastestDays.size() && i < 3; i++) {
+                    memberList.append("`").append(threeFastestDays.get(i)).append("`");
+                    if (i != threeFastestDays.size() - 1) memberList.append(", ");
+                }
+                memberList.append(" fastest 6 player game length(s) in days) ");
             }
             var userSettings = UserSettingsManager.get(member.getId());
-            String activeHoursSummary = userSettings.summarizeActiveHoursEmoji(userSettings.getActiveHours());
+            String activeHoursSummary = UserSettings.summarizeActiveHoursEmoji(userSettings.getActiveHours());
             if (activeHoursSummary != null) {
                 if (activityList.isEmpty()) {
                     activityList
@@ -252,7 +265,7 @@ public class CreateGameButtonHandler {
         return memberList.toString() + activityList;
     }
 
-    @ButtonHandler("joinGameList")
+    @ButtonHandler(value = "joinGameList", save = false)
     public static void joinGameList(ButtonInteractionEvent event) {
         List<Member> members = fetchMembersFromMessage(event);
         if (!members.contains(event.getMember())) {
@@ -264,7 +277,7 @@ public class CreateGameButtonHandler {
         MessageHelper.sendMessageToEventChannel(event, event.getUser().getEffectiveName() + " joined the game.");
     }
 
-    @ButtonHandler("leaveGameList")
+    @ButtonHandler(value = "leaveGameList", save = false)
     public static void leaveGameList(ButtonInteractionEvent event) {
         List<Member> members = fetchMembersFromMessage(event);
         members.remove(event.getMember());
@@ -416,7 +429,14 @@ public class CreateGameButtonHandler {
             ManagedPlayer managedPlayer = GameManager.getManagedPlayer(member.getId());
             int ongoingAmount = countOngoingGamesThatAffectJoinLimit(managedPlayer);
             int completedGames = countCompletedGamesThatAffectJoinLimit(managedPlayer);
-            if (ongoingAmount > completedGames + 2) {
+            int limitIncrease = 0;
+            if (event.getChannel() instanceof ThreadChannel channel) {
+                String parentName = channel.getParentChannel().getName();
+                if ("making-private-games".equalsIgnoreCase(parentName)) {
+                    limitIncrease = 1;
+                }
+            }
+            if (ongoingAmount > completedGames + 2 + limitIncrease) {
                 MessageHelper.sendMessageToChannel(
                         event.getChannel(),
                         member.getUser().getAsMention()

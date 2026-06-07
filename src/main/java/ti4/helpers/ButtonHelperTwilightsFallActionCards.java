@@ -2,6 +2,7 @@ package ti4.helpers;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +10,7 @@ import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.function.Consumers;
 import ti4.discord.interactions.buttons.Buttons;
 import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.game.Game;
@@ -20,9 +22,12 @@ import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.helpers.thundersedge.TeHelperTechs;
 import ti4.image.Mapper;
+import ti4.image.TileHelper;
+import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
 import ti4.model.LeaderModel;
 import ti4.model.TechnologyModel;
+import ti4.model.TileModel;
 import ti4.model.UnitModel;
 import ti4.service.emoji.FactionEmojis;
 import ti4.service.emoji.UnitEmojis;
@@ -67,8 +72,8 @@ public final class ButtonHelperTwilightsFallActionCards {
                             }
                             if (uH.getUnitCount(UnitType.Infantry, p2.getColor()) > 0) {
                                 buttons.add(Buttons.gray(
-                                        player.getFinsFactionCheckerPrefix() + "locustOn_" + tilePos + "_"
-                                                + uH.getName() + "_" + p2.getColor(),
+                                        player.factionButtonChecker() + "locustOn_" + tilePos + "_" + uH.getName() + "_"
+                                                + p2.getColor(),
                                         label));
                             }
                         }
@@ -115,8 +120,8 @@ public final class ButtonHelperTwilightsFallActionCards {
                         }
                         if (uH.getUnitCount(UnitType.Infantry, p2.getColor()) > 0) {
                             buttons.add(Buttons.gray(
-                                    player.getFinsFactionCheckerPrefix() + "locustOn_" + tilePos + "_" + uH.getName()
-                                            + "_" + p2.getColor(),
+                                    player.factionButtonChecker() + "locustOn_" + tilePos + "_" + uH.getName() + "_"
+                                            + p2.getColor(),
                                     label));
                         }
                     }
@@ -313,7 +318,7 @@ public final class ButtonHelperTwilightsFallActionCards {
         Player p2 = game.getPlayerFromColorOrFaction(buttonID.split("_")[1]);
         String relic = buttonID.split("_")[2];
         p2.removeRelic(relic);
-        RelicHelper.resolveRelicLossEffects(game, player, relic);
+        RelicHelper.resolveRelicLossEffects(game, p2, relic);
         String msg = player.getRepresentation() + " has chosen for _"
                 + Mapper.getRelic(relic).getName() + "_, owned by " + p2.getRepresentation() + ", to be _Unravel_'d.";
         if (p2 == player) {
@@ -368,8 +373,7 @@ public final class ButtonHelperTwilightsFallActionCards {
                 continue;
             }
             buttons.add(Buttons.gray(
-                    p2.getFinsFactionCheckerPrefix() + "coerceStep3_" + player.getFaction() + "_" + ability,
-                    tech.getName()));
+                    p2.factionButtonChecker() + "coerceStep3_" + player.getFaction() + "_" + ability, tech.getName()));
         }
         String msg = p2.getRepresentationUnfogged() + ", please choose the ability you wish to give to "
                 + (game.isFowMode() ? player.getColorIfCanSeeStats(p2) : player.getRepresentation()) + ".";
@@ -426,10 +430,10 @@ public final class ButtonHelperTwilightsFallActionCards {
         String ability1 = buttonID.split("_")[2];
         TechnologyModel tech1 = Mapper.getTech(ability1);
         buttons.add(Buttons.gray(
-                p2.getFinsFactionCheckerPrefix() + "coerceStep3_" + player.getFaction() + "_" + ability1,
-                "Give" + tech1.getName()));
-        buttons.add(Buttons.gray(
-                p2.getFinsFactionCheckerPrefix() + "poisonHeroStep4_" + player.getFaction(), "Give 2 Abilities"));
+                p2.factionButtonChecker() + "coerceStep3_" + player.getFaction() + "_" + ability1,
+                "Give " + tech1.getName()));
+        buttons.add(
+                Buttons.gray(p2.factionButtonChecker() + "poisonHeroStep4_" + player.getFaction(), "Give 2 Abilities"));
         String msg = p2.getRepresentation()
                 + ", you have been hit with _Poison of the Nefishh_, and now much choose to either give them the ability they named, or give them 2 of the abilities of you choice.";
         MessageHelper.sendMessageToChannel(p2.getCorrectChannel(), msg, buttons);
@@ -538,8 +542,7 @@ public final class ButtonHelperTwilightsFallActionCards {
                 continue;
             }
             buttons.add(Buttons.gray(
-                    target.getFinsFactionCheckerPrefix() + "transferSingularity_" + recipient.getFaction() + "_"
-                            + ability,
+                    target.factionButtonChecker() + "transferSingularity_" + recipient.getFaction() + "_" + ability,
                     tech.getName(),
                     tech.getSingleTechEmoji()));
         }
@@ -617,7 +620,7 @@ public final class ButtonHelperTwilightsFallActionCards {
         String gainMsg = player.gainTG(max * 2, true);
         ButtonHelperAgents.resolveArtunoCheck(player, max * 2);
         String msg = player.getRepresentation() + " gained " + (max * 2) + " trade goods " + gainMsg + " from having "
-                + max + " faction symbol" + (max == 1 ? "" : "s") + " from " + bestFaction + ".";
+                + StringHelper.pluralize(max, "faction symbol") + " from " + bestFaction + ".";
         MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg);
         ButtonHelper.deleteMessage(event);
     }
@@ -815,8 +818,7 @@ public final class ButtonHelperTwilightsFallActionCards {
                 if (FoWHelper.playerHasUnitsInSystem(player, tile2)) {
                     List<Button> buttons = new ArrayList<>();
                     buttons.add(Buttons.red(
-                            player.getFinsFactionCheckerPrefix() + "getDamageButtons_" + pos + "_"
-                                    + "deleteThis_combat",
+                            player.factionButtonChecker() + "getDamageButtons_" + pos + "_" + "deleteThis_combat",
                             "Destroy Units In " + tile2.getRepresentationForButtons()));
                     String msg = player.getRepresentation() + ", please use this button to destroy units in "
                             + tile2.getRepresentationForButtons() + ".";
@@ -829,13 +831,27 @@ public final class ButtonHelperTwilightsFallActionCards {
     @ButtonHandler("resolveStarFlare")
     public static void resolveStarFlare(Game game, Player player, ButtonInteractionEvent event) {
         List<Button> buttons = new ArrayList<>();
-
-        for (Tile tile : game.getTileMap().values()) {
-            if (tile.isSupernova()) {
-                buttons.add(Buttons.gray("starFlareStep2_" + tile.getPosition(), tile.getRepresentationForButtons()));
+        String msg = player.getRepresentation() + ", please choose the supernova you wish to have erupt.";
+        if (game.isTwilightKart()) {
+            for (Tile tile : game.getTileMap().values()) {
+                if (tile.getPlanetUnitHolders().isEmpty()
+                        && FoWHelper.playerHasActualShipsInSystem(player, tile)
+                        && !tile.getTileModel().hasWormhole()
+                        && !tile.getPosition().contains("frac")
+                        && tile.getSpaceStations().isEmpty()) {
+                    buttons.add(
+                            Buttons.gray("starFlareTKStep2_" + tile.getPosition(), tile.getRepresentationForButtons()));
+                }
+            }
+        } else {
+            for (Tile tile : game.getTileMap().values()) {
+                if (tile.isSupernova()) {
+                    buttons.add(
+                            Buttons.gray("starFlareStep2_" + tile.getPosition(), tile.getRepresentationForButtons()));
+                }
             }
         }
-        String msg = player.getRepresentation() + ", please choose the supernova you wish to have erupt.";
+
         MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg, buttons);
         ButtonHelper.deleteMessage(event);
     }
@@ -875,6 +891,80 @@ public final class ButtonHelperTwilightsFallActionCards {
         String msg =
                 player.getRepresentation() + ", everyone should now destroy 3 units in each tile in and adjacent to "
                         + tile.getRepresentationForButtons() + ".";
+        MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg);
+        ButtonHelper.deleteMessage(event);
+    }
+
+    @ButtonHandler("starFlareTKStep2_")
+    public static void starFlareTKStep2(Game game, Player player, ButtonInteractionEvent event, String buttonID) {
+        Tile tileOg = game.getTileByPosition(buttonID.split("_")[1]);
+        List<String> redTilesToPullFrom = new ArrayList<>(List.of(
+                // Source:  https://discord.com/channels/943410040369479690/1009507056606249020/1140518249088434217
+                //
+                // https://cdn.discordapp.com/attachments/1009507056606249020/1140518248794820628/Starmap_Roll_Helper.xlsx
+
+                "41",
+                "42",
+                "43",
+                "44",
+                "45",
+                "67",
+                "68",
+                "79",
+                "80",
+                "113",
+                "114",
+                "115",
+                "116",
+                "117",
+                "d117",
+                "d118",
+                "d119",
+                "d120",
+                "d121",
+                "d122",
+                "d123"));
+
+        redTilesToPullFrom.removeAll(
+                game.getTileMap().values().stream().map(Tile::getTileID).toList());
+        if (!game.isDiscordantStarsMode() && !game.isUnchartedSpaceStuff()) {
+            redTilesToPullFrom.removeAll(redTilesToPullFrom.stream()
+                    .filter(tileID -> tileID.contains("d"))
+                    .toList());
+        }
+        List<String> tileToPullFromUnshuffled = new ArrayList<>(redTilesToPullFrom);
+        Collections.shuffle(redTilesToPullFrom);
+
+        if (redTilesToPullFrom.isEmpty()) {
+            MessageHelper.sendMessageToChannel(event.getMessageChannel(), "Not enough tiles to draw from.");
+            return;
+        }
+
+        List<MessageEmbed> tileEmbeds = new ArrayList<>();
+        List<String> ids = new ArrayList<>();
+
+        String tileID = redTilesToPullFrom.getFirst();
+        ids.add(tileID);
+        TileModel tile = TileHelper.getTileById(tileID);
+        tileEmbeds.add(tile.getRepresentationEmbed(false));
+
+        MessageHelper.sendMessageToChannel(
+                event.getMessageChannel(),
+                player.getRepresentation() + " drew 1 red back tile from this list:\n> " + tileToPullFromUnshuffled);
+
+        event.getMessageChannel().sendMessageEmbeds(tileEmbeds).queue(Consumers.nop(), BotLogger::catchRestError);
+        UnitHolder space = tileOg.getUnitHolders().get(Constants.SPACE);
+        String frontierFilename = Mapper.getTokenID(Constants.FRONTIER);
+        boolean frontier = space.getTokenList().contains(frontierFilename);
+        Tile novaTile = new Tile(tileID, tileOg.getPosition(), space);
+
+        game.removeTile(tileOg.getPosition());
+        game.setTile(novaTile);
+        if (frontier) {
+            novaTile.getSpaceUnitHolder().addToken(frontierFilename);
+        }
+        String msg = player.getRepresentation() + " has replaced the tile in " + tileOg.getPosition() + " with "
+                + novaTile.getRepresentationForButtons();
         MessageHelper.sendMessageToChannel(player.getCorrectChannel(), msg);
         ButtonHelper.deleteMessage(event);
     }

@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.events.interaction.GenericInteractionCreateEvent;
 import net.dv8tion.jda.api.events.interaction.command.GenericCommandInteractionEvent;
 import org.jetbrains.annotations.NotNull;
 import software.amazon.awssdk.utils.StringUtils;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.DreamButtonHandler;
 import ti4.game.Game;
 import ti4.game.Planet;
 import ti4.game.Player;
@@ -39,7 +40,6 @@ import ti4.service.option.FOWOptionService.FOWOption;
 import ti4.service.unit.CheckUnitContainmentService;
 
 public final class FoWHelper {
-
     public static boolean isPrivateGame(GenericInteractionCreateEvent event) {
         if (event == null) {
             return false;
@@ -60,9 +60,9 @@ public final class FoWHelper {
     }
 
     public static boolean isPrivateGame(
-            Game game, @Nullable GenericInteractionCreateEvent event, @Nullable Channel channel_) {
+            Game game, @Nullable GenericInteractionCreateEvent event, @Nullable Channel channel2) {
         Channel eventChannel = event == null ? null : event.getChannel();
-        Channel channel = channel_ != null ? channel_ : eventChannel;
+        Channel channel = channel2 != null ? channel2 : eventChannel;
         if (channel == null) {
             return game.isFowMode();
         }
@@ -77,7 +77,7 @@ public final class FoWHelper {
             }
             game = GameManager.getManagedGame(gameName).getGame();
         }
-        if (game.isFowMode() && channel_ != null || event != null) {
+        if (game.isFowMode() && channel2 != null || event != null) {
             return channel.getName().endsWith(Constants.PRIVATE_CHANNEL);
         }
         return false;
@@ -272,6 +272,11 @@ public final class FoWHelper {
 
         Set<String> otherAdjacencies = getNonWormholeAdjacencies(game, position);
         adjacentPositions.addAll(otherAdjacencies);
+
+        // Nexus Token Adjacency for Dreaming Throne
+        if (player != null && player.hasAbility("dream_nexus")) {
+            adjacentPositions.addAll(DreamButtonHandler.getDreamNexusAdjacencies(game, player, position));
+        }
 
         // If player has ghoti commander, is active player and has activated a system
         if (player != null

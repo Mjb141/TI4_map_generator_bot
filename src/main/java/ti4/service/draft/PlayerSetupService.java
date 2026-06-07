@@ -32,6 +32,7 @@ import ti4.message.MessageHelper;
 import ti4.model.FactionModel;
 import ti4.model.Source;
 import ti4.model.TechnologyModel;
+import ti4.model.UnitModel;
 import ti4.service.emoji.MiscEmojis;
 import ti4.service.info.AbilityInfoService;
 import ti4.service.info.CardsInfoService;
@@ -278,6 +279,12 @@ public class PlayerSetupService {
         // STARTING OWNED UNITS
         Set<String> playerOwnedUnits = new HashSet<>(factionModel.getUnits());
         player.setUnitsOwned(playerOwnedUnits);
+        if (game.isBaseGameMode()) {
+            UnitModel mech = player.getUnitByBaseType("mech");
+            if (mech != null) {
+                player.removeOwnedUnitByID(mech.getId());
+            }
+        }
 
         // Don't do special stuff if Franken Faction
         if (faction.startsWith("franken")) {
@@ -305,8 +312,7 @@ public class PlayerSetupService {
         if (player.getTechs().isEmpty() && !player.getFaction().contains("sardakk")) {
             if (player.getFaction().contains("keleres")) {
                 Button getTech = Buttons.green(
-                        player.getFinsFactionCheckerPrefix() + "getKeleresTechOptions",
-                        "Get Keleres Technology Options");
+                        player.factionButtonChecker() + "getKeleresTechOptions", "Get Keleres Technology Options");
                 String msg = player.getRepresentationUnfogged()
                         + " after every other faction gets their starting technologies,"
                         + " press this button to for Keleres to get their starting technologies.";
@@ -487,6 +493,14 @@ public class PlayerSetupService {
                             + " you may peek at the next objective in your `#cards-info` thread (by your promissory note). "
                             + "This holds true for anyone with _Read the Fates_. Don't do this until after secret objectives are dealt and discarded.");
         }
+        if (player.hasAbility("mechanized_military")) {
+            String unitID = AliasHandler.resolveUnit("mech");
+            player.setUnitCap(unitID, 6);
+            MessageHelper.sendMessageToChannel(
+                    player.getCorrectChannel(),
+                    "Set mech unit maximum to 6 for " + player.getRepresentation()
+                            + ", due to their **Mechanized Military** ability.");
+        }
         CardsInfoService.sendVariousAdditionalButtons(game, player);
 
         if (!game.isFowMode()) {
@@ -497,9 +511,10 @@ public class PlayerSetupService {
         }
 
         if (!game.isFowMode()) {
-            StringBuilder sb = TitlesHelper.getPlayerTitles(player.getUserID(), player.getUserName(), false);
+            String username = player.getUserName();
+            StringBuilder sb = TitlesHelper.getPlayerTitles(player.getUserID(), username, false);
             if (!sb.toString().contains("No titles yet")) {
-                String msg = "In previous games, " + player.getUserName() + " has earned the titles of: \n" + sb;
+                String msg = "In previous games, " + username + " has earned the titles of: \n" + sb;
                 MessageHelper.sendMessageToChannel(game.getMainGameChannel(), msg);
             }
         }

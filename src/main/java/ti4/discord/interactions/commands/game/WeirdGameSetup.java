@@ -19,7 +19,7 @@ import ti4.service.fow.FOWPlusService;
 import ti4.service.fow.RiftSetModeService;
 import ti4.service.option.FOWOptionService.FOWOption;
 
-class WeirdGameSetup extends GameStateSubcommand {
+public class WeirdGameSetup extends GameStateSubcommand {
 
     WeirdGameSetup() {
         super(Constants.WEIRD_GAME_SETUP, "Game Setup for Weird Games", true, false);
@@ -55,6 +55,8 @@ class WeirdGameSetup extends GameStateSubcommand {
         addOptions(
                 new OptionData(OptionType.BOOLEAN, Constants.THUNDERS_EDGE_MODE, "True to enable Thunder's Edge Mode"));
         addOptions(new OptionData(OptionType.BOOLEAN, Constants.VEILED_HEART_MODE, "True to enable Veiled Heart Mode"));
+        addOptions(new OptionData(
+                OptionType.BOOLEAN, Constants.FEAST_OR_FAMINE_MODE, "True to enable Feast or Famine Mode"));
         addOptions(new OptionData(
                 OptionType.BOOLEAN,
                 FOWOption.RIFTSET_MODE.toString(),
@@ -122,6 +124,9 @@ class WeirdGameSetup extends GameStateSubcommand {
 
         Boolean veiledHeartMode = event.getOption(Constants.VEILED_HEART_MODE, null, OptionMapping::getAsBoolean);
         if (veiledHeartMode != null) game.setVeiledHeartMode(veiledHeartMode);
+
+        Boolean feastOrFamineMode = event.getOption(Constants.FEAST_OR_FAMINE_MODE, null, OptionMapping::getAsBoolean);
+        if (feastOrFamineMode != null) game.setFeastOrFamineMode(feastOrFamineMode);
 
         Boolean limitedMode = event.getOption(Constants.LIMITED_WHISPERS_MODE, null, OptionMapping::getAsBoolean);
         if (limitedMode != null) game.setLimitedWhispersMode(limitedMode);
@@ -285,8 +290,7 @@ class WeirdGameSetup extends GameStateSubcommand {
             if (!game.validateAndSetPublicObjectivesStage2Deck(event, Mapper.getDeck("public_stage_2_objectives_base")))
                 return false;
             if (!game.validateAndSetSecretObjectiveDeck(event, Mapper.getDeck("secret_objectives_base"))) return false;
-            if (!game.validateAndSetActionCardDeck(event, Mapper.getDeck("action_cards_basegame_and_codex1")))
-                return false;
+            if (!game.validateAndSetActionCardDeck(event, Mapper.getDeck("action_cards_basegame"))) return false;
             if (!game.validateAndSetRelicDeck(Mapper.getDeck("relics_base"))) return false;
             if (!game.validateAndSetExploreDeck(event, Mapper.getDeck("explores_base"))) return false;
 
@@ -425,5 +429,16 @@ class WeirdGameSetup extends GameStateSubcommand {
         }
 
         return true;
+    }
+
+    public static boolean applyBaseGameMode(GenericInteractionCreateEvent event, Game game) {
+        game.setThundersEdge(false);
+        game.setTwilightsFallMode(false);
+        game.removeStoredValue("useOldPok");
+        boolean success = setGameMode(event, game, true, false, false, false, false, false);
+        if (success) {
+            game.setStrategyCardSet("pok");
+        }
+        return success;
     }
 }

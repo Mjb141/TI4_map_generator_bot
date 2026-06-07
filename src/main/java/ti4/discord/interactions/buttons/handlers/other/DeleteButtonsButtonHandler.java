@@ -9,6 +9,8 @@ import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import org.apache.commons.lang3.function.Consumers;
 import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.netrunners.NetrunnersAbilitiesHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.netrunners.NetrunnersLeadersHandler;
 import ti4.discord.interactions.routing.ButtonHandler;
 import ti4.game.Game;
 import ti4.game.Player;
@@ -23,6 +25,7 @@ import ti4.helpers.ButtonHelperTacticalAction;
 import ti4.helpers.CommandCounterHelper;
 import ti4.helpers.Helper;
 import ti4.helpers.PromissoryNoteHelper;
+import ti4.helpers.StringHelper;
 import ti4.helpers.Units.UnitKey;
 import ti4.helpers.Units.UnitType;
 import ti4.image.Mapper;
@@ -33,6 +36,7 @@ import ti4.service.abilities.MahactTokenService;
 import ti4.service.breakthrough.AutoFactoriesService;
 import ti4.service.breakthrough.EidolonMaximumService;
 import ti4.service.breakthrough.TheIconService;
+import ti4.service.combat.StartCombatService;
 import ti4.service.emoji.FactionEmojis;
 import ti4.service.emoji.TechEmojis;
 import ti4.service.fow.LoreService;
@@ -52,7 +56,7 @@ class DeleteButtonsButtonHandler {
                         || "Done Losing Fleet Tokens".equalsIgnoreCase(buttonLabel))
                 && editedMessage.contains("command tokens have gone from")) {
 
-            String playerRep = player.getRepresentation();
+            String playerRep = player.getRepresentationNoPing();
             String finalCCs = player.getTacticalCC() + "/" + player.getFleetCC() + "/" + player.getStrategicCC();
             String shortCCs = editedMessage.substring(editedMessage.indexOf("command tokens have gone from "));
             shortCCs = shortCCs.replace("command tokens have gone from ", "");
@@ -61,7 +65,7 @@ class DeleteButtonsButtonHandler {
                 boolean cyber = false;
                 boolean malevolency = false;
                 int netGain = ButtonHelper.checkNetGain(player, shortCCs);
-                finalCCs += ". You gained a net total of " + netGain + " command token" + (netGain == 1 ? "" : "s");
+                finalCCs += ". You gained a net total of " + StringHelper.pluralize(netGain, "command token");
                 for (String pn : player.getPromissoryNotes().keySet()) {
                     if (!player.ownsPromissoryNote("ce") && "ce".equalsIgnoreCase(pn)) {
                         cyber = true;
@@ -107,8 +111,8 @@ class DeleteButtonsButtonHandler {
                                     player.getCorrectChannel(),
                                     player.getRepresentationUnfogged()
                                             + ", heads up, bot thinks you should have gained "
-                                            + (properGain == 1 ? "only " : "") + properGain
-                                            + " command token" + (properGain == 1 ? "" : "s") + " due to " + reasons
+                                            + (properGain == 1 ? "only " : "")
+                                            + StringHelper.pluralize(properGain, "command token") + " due to " + reasons
                                             + ".");
                         } else {
                             if (netGain > 2 && cyber) {
@@ -240,12 +244,24 @@ class DeleteButtonsButtonHandler {
                 if (player.hasTechReady("absol_st")) {
                     buttons.add(Buttons.red("useTech_absol_st", "Use Sarween Tools"));
                 }
+                if (game.getRealPlayers().stream()
+                        .anyMatch(player_ -> player_.hasUnexhaustedLeader("netrunnersagent"))) {
+                    buttons.addAll(NetrunnersLeadersHandler.getOverclockButtons(game, player, tile));
+                }
                 if (player.hasUnexhaustedLeader("winnuagent")
                         && !"muaatagent".equalsIgnoreCase(buttonID)
                         && !"solBtBuild".equalsIgnoreCase(buttonID)
                         && !"arboHeroBuild".equalsIgnoreCase(buttonID)
                         && !buttonID.contains("integrated")) {
                     buttons.add(Buttons.red("exhaustAgent_winnuagent", "Use Winnu Agent", FactionEmojis.Winnu));
+                }
+                if (player.hasUnexhaustedLeader("lunariumagent")
+                        && !"muaatagent".equalsIgnoreCase(buttonID)
+                        && !"solBtBuild".equalsIgnoreCase(buttonID)
+                        && !"arboHeroBuild".equalsIgnoreCase(buttonID)
+                        && !buttonID.contains("integrated")) {
+                    buttons.add(
+                            Buttons.red("exhaustAgent_lunariumagent", "Use Lunarium Agent", FactionEmojis.lunarium));
                 }
                 if (player.hasUnexhaustedLeader("gledgeagent")
                         && !"muaatagent".equalsIgnoreCase(buttonID)
@@ -309,7 +325,7 @@ class DeleteButtonsButtonHandler {
                         UnitModel producedUnit =
                                 player.getUnitsByAsyncID(unitKey.asyncID()).getFirst();
 
-                        if (producedUnit.getUnitType() == UnitType.Flagship && player.ownsUnit("creuss_flagship")) {
+                        if (producedUnit.getUnitType() == UnitType.Flagship && player.ownsUnit("ghost_flagship")) {
                             adjust = 1;
                         }
                     }
@@ -349,6 +365,9 @@ class DeleteButtonsButtonHandler {
             }
             player.resetSpentThings();
             game.removeStoredValue("producedUnitCostFor" + player.getFaction());
+            if (player.hasAbility("control_network")) {
+                NetrunnersAbilitiesHandler.cleanupControlNetworkProduction(game, player);
+            }
             if (player.hasAbility("amalgamation")) {
                 game.removeStoredValue("amalgAmount");
             }
@@ -401,6 +420,12 @@ class DeleteButtonsButtonHandler {
                 List<Button> systemButtons = StartTurnService.getStartOfTurnButtons(player, game, true, event);
                 MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message, systemButtons);
                 player.resetOlradinPolicyFlags();
+            }
+            if (buttonID.contains("contingency")) {
+                Tile tile = game.getTileByPosition(game.getActiveSystem());
+                if (tile != null) {
+                    StartCombatService.combatCheck(game, event, tile);
+                }
             }
         }
         if ("diplomacy".equalsIgnoreCase(buttonID)) {

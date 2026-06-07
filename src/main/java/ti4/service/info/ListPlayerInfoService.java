@@ -150,9 +150,8 @@ public class ListPlayerInfoService {
         if (currentResources >= goal && currentInfluence >= goal) {
             return new ObjectiveResult(true, goal * 2);
         }
-        int additionalResources2 = Math.min(remainingTradeGoods, Math.max(0, goal - currentResources));
-        int additionalInfluence2 =
-                Math.min(remainingTradeGoods - additionalResources2, Math.max(0, goal - currentInfluence));
+        int additionalResources2 = Math.clamp(goal - currentResources, 0, remainingTradeGoods);
+        int additionalInfluence2 = Math.clamp(goal - currentInfluence, 0, remainingTradeGoods - additionalResources2);
 
         int newResources2 = currentResources + additionalResources2;
         int newInfluence2 = currentInfluence + additionalInfluence2;
@@ -176,9 +175,8 @@ public class ListPlayerInfoService {
         // If we've run out of planets, try using trade goods
         if (index >= planets.size()) {
             // Try using remaining trade goods for resources
-            int additionalResources = Math.min(remainingTradeGoods, Math.max(0, goal - currentResources));
-            int additionalInfluence =
-                    Math.min(remainingTradeGoods - additionalResources, Math.max(0, goal - currentInfluence));
+            int additionalResources = additionalResources2;
+            int additionalInfluence = Math.clamp(goal - currentInfluence, 0, remainingTradeGoods - additionalResources);
 
             int newResources = currentResources + additionalResources;
             int newInfluence = currentInfluence + additionalInfluence;
@@ -418,6 +416,7 @@ public class ListPlayerInfoService {
             case Constants.VOICE_OF_THE_COUNCIL_PO, "Shard of the Throne", "Political Censure" -> objectiveId;
             case "Shard of the Throne (1)", "Shard of the Throne (2)", "Shard of the Throne (3)" -> objectiveId;
             case "Ixthian Rex Point" -> objectiveId;
+            case "A Song Like Marrow" -> objectiveId;
             default -> null;
         };
     }
@@ -483,15 +482,8 @@ public class ListPlayerInfoService {
                 int aboveN = 0;
                 for (Player p2 : player.getNeighbouringPlayers(true)) {
                     int p1count = player.getPlanetsForScoring(false).size();
-                    int mutualPlanets = 0;
-                    for (String plan : game.getPlanetsPlayerIsCoexistingOn(player)) {
-                        if (game.getPlayersPlanetsThatOthersAreCoexistingOn(p2).contains(plan)) {
-                            mutualPlanets++;
-                        }
-                    }
                     int p2count = p2.getPlanetsForScoring(false).size()
-                            - game.getPlanetsPlayerIsCoexistingOn(p2).size()
-                            - mutualPlanets;
+                            - game.getPlanetsPlayerIsCoexistingOn(p2).size();
                     if (p1count > p2count) {
                         aboveN++;
                     }

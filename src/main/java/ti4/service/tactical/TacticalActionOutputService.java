@@ -12,6 +12,9 @@ import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
+import ti4.discord.interactions.buttons.Buttons;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.beans.DreamButtonHandler;
+import ti4.discord.interactions.buttons.handlers.faction.homebrew.whispers.arvaxi.MobilizationEngineHandler;
 import ti4.game.Game;
 import ti4.game.Planet;
 import ti4.game.Player;
@@ -33,13 +36,42 @@ import ti4.service.fow.GMService;
 public class TacticalActionOutputService {
 
     public void refreshButtonsAndMessageForChoosingTile(ButtonInteractionEvent event, Game game, Player player) {
+        refreshButtonsAndMessageForChoosingTile(event, game, player, 1);
+    }
+
+    public void refreshButtonsAndMessageForChoosingTile(
+            ButtonInteractionEvent event, Game game, Player player, int page) {
         String message = buildMessageForTacticalAction(game, player);
         List<Button> systemButtons = TacticalActionService.getTilesToMoveFrom(player, game, event);
         if (event == null) {
             MessageHelper.sendMessageToChannelWithButtons(player.getCorrectChannel(), message, systemButtons);
-        } else {
+        } else if (systemButtons.size() <= 25) {
             MessageHelper.editMessageWithButtons(event, message, systemButtons);
+        } else {
+            MessageHelper.editMessageWithActionRowsAndFiles(
+                    event,
+                    message,
+                    Buttons.paginateButtons(
+                            getTileButtons(systemButtons),
+                            getControlButtons(systemButtons),
+                            page,
+                            player.factionButtonChecker() + "moveFromTilePage"),
+                    List.of());
         }
+    }
+
+    private List<Button> getTileButtons(List<Button> buttons) {
+        return buttons.stream()
+                .filter(TacticalActionOutputService::isTileButton)
+                .toList();
+    }
+
+    private List<Button> getControlButtons(List<Button> buttons) {
+        return buttons.stream().filter(button -> !isTileButton(button)).toList();
+    }
+
+    private boolean isTileButton(Button button) {
+        return button.getCustomId() != null && button.getCustomId().contains("tacticalMoveFrom_");
     }
 
     public void refreshButtonsAndMessageForTile(
@@ -244,7 +276,9 @@ public class TacticalActionOutputService {
                 maxBonus++;
                 output.append(", used _Gravity Drive_)");
             } else {
-                output.append(", __does not have _Gravity Drive___)");
+                if (!game.isTwilightsFallMode()) {
+                    output.append(", __does not have _Gravity Drive___)");
+                }
             }
             if (player.hasUnit("tk-voidcarver")) {
                 maxBonus++;
@@ -274,6 +308,9 @@ public class TacticalActionOutputService {
                 output.append(" (gravity rifts along a path could add +")
                         .append(distance - riftDistance)
                         .append(" movement if used)");
+                if (player.hasRelic("circletofthevoid")) {
+                    output.append(" (Does not roll for rifts due to circlet of the void)");
+                }
                 game.setStoredValue("possiblyUsedRift", "yes");
             }
         }
@@ -288,6 +325,10 @@ public class TacticalActionOutputService {
         }
         if (player.hasAbility("celestial_guides")) {
             game.setStoredValue("possiblyUsedRift", "");
+        }
+        if (distance > moveValue && player.hasTech("bedreamneg")) {
+            output.append(
+                    " starting system containing a nexus token gives +1 to move value with Non-Euclidean Geometries.");
         }
         return output.toString();
     }
@@ -309,6 +350,7 @@ public class TacticalActionOutputService {
         int baseMoveValue = model.getMoveValue();
         if (baseMoveValue == 0) return 0;
         if (tile.isNebula(game)
+                && !DreamButtonHandler.playerIgnoresDreamAgentAnomaly(game, player, tile)
                 && !player.hasAbility("voidborn")
                 && !player.hasAbility("celestial_being")
                 && !player.hasTech("absol_amd")
@@ -335,7 +377,13 @@ public class TacticalActionOutputService {
         if (player.hasUnit("tf-echoofascension") && model.getUnitType() == UnitType.Flagship) {
             bonusMoveValue++;
         }
+        if (MobilizationEngineHandler.hasEngineAttached(game)) {
+            bonusMoveValue += MobilizationEngineHandler.getMoveMod(game, player, model);
+        }
         if (player.hasAbility("slipstream") && (tileHasWormhole || (movingFromHome && !game.isTwilightsFallMode()))) {
+            bonusMoveValue++;
+        }
+        if (player.hasTech("bedreamneg") && DreamButtonHandler.tileContainsNexusToken(game, tile, true)) {
             bonusMoveValue++;
         }
         if (game.isCallOfTheVoidMode() && activeSystem.getPosition().contains("frac")) {

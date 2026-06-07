@@ -46,7 +46,6 @@ import ti4.model.UnitModel;
 import ti4.service.emoji.MiscEmojis;
 import ti4.service.fow.FOWCombatThreadMirroring;
 import ti4.service.player.PlayerColorService;
-import ti4.service.statistics.round.RoundStatsTracker;
 import ti4.service.unit.DestroyUnitService;
 import ti4.spring.context.SpringContext;
 import ti4.testUtils.BaseTi4Test;
@@ -59,9 +58,9 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player sol = harness.player("sol");
         Player mentak = harness.player("mentak");
         Tile tile = harness.tile("19");
-        harness.add(tile, sol, UnitType.Carrier, 1);
-        harness.add(tile, sol, UnitType.Cruiser, 2);
-        harness.add(tile, mentak, UnitType.Destroyer, 1);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, sol, UnitType.Cruiser, 2);
+        Harness.add(tile, mentak, UnitType.Destroyer, 1);
 
         assertRollBodyParity(harness, sol, mentak, tile, CombatRollType.combatround, 8, 2, 10);
     }
@@ -72,8 +71,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player winnu = harness.player("winnu");
         Player sol = harness.player("sol");
         Tile mecatol = harness.tile("112");
-        harness.add(mecatol, winnu, UnitType.Flagship, 1);
-        harness.add(mecatol, sol, UnitType.Carrier, 1);
+        Harness.add(mecatol, winnu, UnitType.Flagship, 1);
+        Harness.add(mecatol, sol, UnitType.Carrier, 1);
 
         RenderedRoll roll = assertRollBodyParity(harness, winnu, sol, mecatol, CombatRollType.combatround, 3, 6, 9);
 
@@ -89,9 +88,9 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Tile tile = harness.tile("112");
         bluetf.addOwnedUnitByID("tf-echoofascension");
         bluetf.addTech("tf-supercharge");
-        harness.add(tile, bluetf, UnitType.Flagship, 1);
-        harness.add(tile, bluetf, UnitType.Mech, 4);
-        harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, bluetf, UnitType.Flagship, 1);
+        Harness.add(tile, bluetf, UnitType.Mech, 4);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
 
         RenderedRoll roll =
                 assertRollBodyParity(harness, bluetf, sol, tile, CombatRollType.combatround, 2, 3, 4, 5, 6, 7, 8, 9);
@@ -106,8 +105,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player jolnar = harness.player("jolnar");
         Player sol = harness.player("sol");
         Tile tile = harness.tile("19");
-        harness.add(tile, jolnar, UnitType.Cruiser, 1);
-        harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, jolnar, UnitType.Cruiser, 1);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
         harness.game.setStoredValue("munitionsReserves", jolnar.getFaction());
 
         RenderedRoll roll = assertRollBodyParity(harness, jolnar, sol, tile, CombatRollType.combatround, 1, 10);
@@ -121,8 +120,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player jolnar = harness.player("jolnar");
         Player sol = harness.player("sol");
         Tile tile = harness.tile("19");
-        harness.add(tile, jolnar, UnitType.Destroyer, 1);
-        harness.add(tile, sol, UnitType.Fighter, 2);
+        Harness.add(tile, jolnar, UnitType.Destroyer, 1);
+        Harness.add(tile, sol, UnitType.Fighter, 2);
 
         RenderedRoll roll = assertRollBodyParity(harness, jolnar, sol, tile, CombatRollType.AFB, 1, 2, 10, 9);
 
@@ -137,9 +136,9 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Tile tile = harness.tile("19");
         argent.addOwnedUnitByID("argent_destroyer2");
         argent.addTech("swa2");
-        harness.add(tile, argent, UnitType.Destroyer, 1);
-        harness.add(tile, sol, UnitType.Fighter, 2);
-        harness.add(tile, sol, UnitType.Infantry, 3);
+        Harness.add(tile, argent, UnitType.Destroyer, 1);
+        Harness.add(tile, sol, UnitType.Fighter, 2);
+        Harness.add(tile, sol, UnitType.Infantry, 3);
 
         try (MockedStatic<DestroyUnitService> ignored = mockStatic(DestroyUnitService.class)) {
             RenderedRoll roll = assertRollBodyParity(harness, argent, sol, tile, CombatRollType.AFB, 9, 10, 2, 3);
@@ -156,8 +155,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player sol = harness.player("sol");
         Tile tile = harness.tile("19");
         naalu.addRelic("thalnos");
-        harness.add(tile, naalu, UnitType.Cruiser, 1);
-        harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, naalu, UnitType.Cruiser, 1);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
 
         RenderedRoll roll = assertRollBodyParity(harness, naalu, sol, tile, CombatRollType.combatround, 1);
 
@@ -170,8 +169,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player naalu = harness.player("naalu");
         Player sol = harness.player("sol");
         Tile tile = harness.tile("19");
-        harness.add(tile, naalu, UnitType.Cruiser, 1);
-        harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, naalu, UnitType.Cruiser, 1);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
         harness.game.setStoredValue("thalnosPlusOne", "true");
         harness.game.setSpecificThalnosUnit(tile.getPosition() + "_space_cruiser", 1);
 
@@ -189,8 +188,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player letnev = harness.player("letnev");
         Player sol = harness.player("sol");
         Tile tile = harness.tile("19");
-        harness.add(tile, letnev, UnitType.Flagship, 1);
-        harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, letnev, UnitType.Flagship, 1);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
         tile.addUnitDamage(Constants.SPACE, Units.getUnitKey(UnitType.Flagship, letnev.getColorID()), 1);
 
         RenderedRoll roll = assertRollBodyParity(harness, letnev, sol, tile, CombatRollType.combatround, 8, 2);
@@ -204,8 +203,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player jolnar = harness.player("jolnar");
         Player sol = harness.player("sol");
         Tile tile = harness.tile("19");
-        harness.add(tile, jolnar, UnitType.Flagship, 1);
-        harness.add(tile, sol, UnitType.Carrier, 1);
+        Harness.add(tile, jolnar, UnitType.Flagship, 1);
+        Harness.add(tile, sol, UnitType.Carrier, 1);
 
         RenderedRoll roll = assertRollBodyParity(harness, jolnar, sol, tile, CombatRollType.combatround, 9, 10);
 
@@ -218,8 +217,8 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         Player sol = harness.player("sol");
         Player mentak = harness.player("mentak");
         Tile tile = harness.tile("19");
-        harness.add(tile, sol, UnitType.Cruiser, 1);
-        harness.add(tile, mentak, UnitType.Carrier, 1);
+        Harness.add(tile, sol, UnitType.Cruiser, 1);
+        Harness.add(tile, mentak, UnitType.Carrier, 1);
         GenericInteractionCreateEvent event = mock(GenericInteractionCreateEvent.class);
         when(event.getMessageChannel()).thenReturn(mock(MessageChannel.class));
         CombatReplayService replayService = mock(CombatReplayService.class);
@@ -227,7 +226,6 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
         try (MockedStatic<DiceHelper> dice = mockDice(10);
                 MockedStatic<MessageHelper> ignoredMessages = mockStatic(MessageHelper.class);
                 MockedStatic<FOWCombatThreadMirroring> ignoredFow = mockStatic(FOWCombatThreadMirroring.class);
-                MockedStatic<RoundStatsTracker> ignoredRoundStats = mockStatic(RoundStatsTracker.class);
                 MockedStatic<SpringContext> spring = mockStatic(SpringContext.class)) {
             spring.when(() -> SpringContext.getBean(CombatReplayService.class)).thenReturn(replayService);
 
@@ -399,7 +397,7 @@ class CombatRollPayloadRendererParityTest extends BaseTi4Test {
             return tile;
         }
 
-        private void add(Tile tile, Player player, UnitType unitType, int count) {
+        private static void add(Tile tile, Player player, UnitType unitType, int count) {
             tile.addUnit(Constants.SPACE, Units.getUnitKey(unitType, player.getColorID()), count);
         }
 
