@@ -17,6 +17,15 @@
         "source": "addiction"
     },
     {
+        "alias": "galactic_imperator",
+        "name": "Galactic Imperator",
+        "text": "At the start of the Status Phase, starting left of the speaker and continuing anti-clockwise, each player may rank up on the Imperator track. A player may rank up only once per round and only if they meet the requirements for the next rank. Each rank is defined by a set of event-based and state-based requirements; players may use the Imperator flow to track what they have completed during the round and at the point of rank-up.\nOnce a player ranks up, they advance to the next rank and their previous requirements remain satisfied. Players who do not meet the next rank, or who choose to pass, are skipped. The process continues until no eligible players remain or all remaining players pass.",
+        "notes": "Track: a custom rank progression beginning left of the speaker, moving anti-clockwise, with event and state checks at rank-up.",
+        "complexity": 2,
+        "flavorText": "The galaxy does not reward strength alone; it rewards the ruler who can both seize the moment and hold the state together.",
+        "source": "other"
+    },
+    {
         "alias": "gul_system",
         "name": "The Gul System, Mecatol Rex",
         "text": "During setup, replace the Mecatol Rex tile with this event's system tile; THE POLAR CASTELLE and MECATOL CITY are planetary sites. Each of these planetary sites is treted as a planet for all purposes. Each planet and planetary site has a corresponding planet and ability card.\nAny game effect reffering to the 'Mecatol Rex' planet refer to the 'Mecatol City' planetary site instead.\nDuring the 'Commit Ground Forces' step, players can commit ground forces between both planetary sites in this system.",
@@ -35,7 +44,7 @@
     {
         "alias": "new_dawn",
         "name": "New Dawn",
-        "text": "During setup, players playing as the Creuss, Empyrean, Firmament, Hacan, Jol-Nar, Keleres, Letnev, Naaz-Rokha, Vuil'Raith, Winnu, Xxcha, Yin, and Yssaril may purge one of their faction technologies to take their faction's *New Dawn* cards.\nPlayers not playing the Firmament or Jol-Nar place the 'I' unit card on their sheet, replacing the default unit. The 'I' unit card is not a technology. The 'II' unit upgrade is a faction technology and is placed in the technology deck.\nJol-Nar and Firmament players purge their War Sun tech and place *War Sun Project* and *The Dragon, Dormant* on their respective faction sheets. *University War Sun* and *The Dragon, Freed* are faction technologies.",
+        "text": "During setup, players playing as the Creuss, Empyrean, Firmament, Hacan, Jol-Nar, Keleres, Letnev, Naaz-Rokha, Vuil'Raith, Winnu, Xxcha, Yin, and Yssaril may purge one of their faction-specific technologies. In addition, they may immediately place 1 infantry on each of two planets they control that are not their home system.",
         "complexity": 1,
         "flavorText": "The only thing for certain was that the future wasn't.",
         "source": "newdawn"
