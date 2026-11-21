@@ -114,8 +114,8 @@ class GalacticEventButtonHandler {
                         Buttons.green(
                                 "ccSystemsSet_" + FractureService.CC_SYSTEMS_EXPANDED_FRACTURE,
                                 "Use Cosmic Convergence Systems (ef1-ef12)"),
-                        Buttons.blue(
-                                "ccSystemsSet_" + FractureService.CC_SYSTEMS_REFRACTURE, "Use Refracture Systems")));
+                        Buttons.blue("ccSystemsSet_" + FractureService.CC_SYSTEMS_REFRACTURE, "Use Refracture Systems"),
+                        Buttons.gray("ccSystemsSet_" + FractureService.CC_SYSTEMS_BOTH, "Draw From Both")));
                 MessageHelper.sendMessageToChannel(
                         event.getChannel(),
                         "Please choose which systems Cosmic Convergence draws its new fracture tiles from:",

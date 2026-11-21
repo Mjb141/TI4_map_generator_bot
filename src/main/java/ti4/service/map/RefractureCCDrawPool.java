@@ -95,6 +95,18 @@ public final class RefractureCCDrawPool {
                     0,
                     "Qilin Station & Anubis/Sekhmet/Nile",
                     placement(
+                            tile("fracture8", "frac11", units(unit("2 dd", "space")), tokens()),
+                            tile("fracture9", "frac12", units(), tokens()),
+                            tile(
+                                    "fracture10",
+                                    "frac13",
+                                    units(
+                                            unit("1 dn, 1 cr", "space"),
+                                            unit("3 inf, 1 pds", "nile"),
+                                            unit("1 inf", "anubis"),
+                                            unit("1 inf", "sekhmet")),
+                                    relics("nile", "anubis", "sekhmet"))),
+                    placement(
                             tile("fracture8", "frac3", units(unit("2 dd", "space")), tokens()),
                             tile("fracture9", "frac4", units(), tokens()),
                             tile(
@@ -109,6 +121,13 @@ public final class RefractureCCDrawPool {
             cluster(
                     1,
                     "Mater Calyxa",
+                    placement(
+                            tile("fracture12", "frac22", units(), tokens()),
+                            tile(
+                                    "fracture13",
+                                    "frac21",
+                                    units(unit("3 dn", "space"), unit("1 inf, 2 pds", "matercalyxa")),
+                                    relics("matercalyxa"))),
                     placement(
                             tile("fracture12", "frac2", units(), tokens()),
                             tile(
@@ -137,6 +156,16 @@ public final class RefractureCCDrawPool {
             cluster(
                     3,
                     "The Experiment & Janus",
+                    placement(
+                            tile("fracture11", "frac16", units(), tokens()),
+                            tile(
+                                    "fracture17",
+                                    "frac17",
+                                    units(
+                                            unit("1 dn, 1 ff", "space"),
+                                            unit("1 inf, 1 pds", "experiment"),
+                                            unit("1 inf", "janus")),
+                                    relics("experiment", "janus"))),
                     placement(
                             tile("fracture11", "frac11", units(), tokens()),
                             tile(
@@ -219,6 +248,22 @@ public final class RefractureCCDrawPool {
                     placement(
                             tile(
                                     "fracture29",
+                                    "frac25",
+                                    units(unit("1 ff", "space"), unit("2 mf", "maahes")),
+                                    tokens(relic("maahes"))),
+                            tile("fracture31", "frac24", units(), tokens()),
+                            tile("fracture30", "frac23", units(), tokens())),
+                    placement(
+                            tile(
+                                    "fracture29",
+                                    "frac17",
+                                    units(unit("1 ff", "space"), unit("2 mf", "maahes")),
+                                    tokens(relic("maahes"))),
+                            tile("fracture31", "frac15", units(), tokens()),
+                            tile("fracture30", "frac16", units(), tokens())),
+                    placement(
+                            tile(
+                                    "fracture29",
                                     "frac4",
                                     units(unit("1 ff", "space"), unit("2 mf", "maahes")),
                                     tokens(relic("maahes"))),
@@ -238,6 +283,18 @@ public final class RefractureCCDrawPool {
                     placement(
                             tile(
                                     "fracture34",
+                                    "frac12",
+                                    units(unit("6 ff", "space"), unit("1 inf", "pollux")),
+                                    tokens(relic("pollux"))),
+                            tile("fracture33", "frac13", units(), tokens()),
+                            tile(
+                                    "fracture32",
+                                    "frac14",
+                                    units(unit("1 dd, 4 ff", "space"), unit("1 inf", "castor")),
+                                    tokens(relic("castor")))),
+                    placement(
+                            tile(
+                                    "fracture34",
                                     "frac5",
                                     units(unit("6 ff", "space"), unit("1 inf", "pollux")),
                                     tokens(relic("pollux"))),
@@ -250,6 +307,21 @@ public final class RefractureCCDrawPool {
             cluster(
                     10,
                     "Makara & the Izanas",
+                    placement(
+                            tile(
+                                    "fracture35",
+                                    "frac13",
+                                    units(unit("5 ff", "space"), unit("2 inf", "makara")),
+                                    tokens(relic("makara"))),
+                            tile(
+                                    "fracture36",
+                                    "frac14",
+                                    units(
+                                            unit("2 cr, 1 dd", "space"),
+                                            unit("2 inf", "izana-mi"),
+                                            unit("2 inf", "izana-gi")),
+                                    tokens(relic("izana-mi"), relic("izana-gi"))),
+                            tile("fracture37", "frac15", units(), tokens())),
                     placement(
                             tile(
                                     "fracture35",

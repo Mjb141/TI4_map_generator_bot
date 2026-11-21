@@ -46,6 +46,7 @@ public class FractureService {
 
     public static final String CC_SYSTEMS_EXPANDED_FRACTURE = "cosmicConvergenceSystems";
     public static final String CC_SYSTEMS_REFRACTURE = "refractureSystems";
+    public static final String CC_SYSTEMS_BOTH = "bothSystems";
 
     /**
      * Did the GM pick "Refracture Systems" for the Cosmic Convergence galactic
@@ -54,6 +55,76 @@ public class FractureService {
     public static boolean drawsFromRefractureSystems(Game game) {
         return game.isCosmicConvergenceMode()
                 && CC_SYSTEMS_REFRACTURE.equalsIgnoreCase(game.getStoredValue(CC_SYSTEMS_OPTION_KEY));
+    }
+
+    /**
+     * Did the GM pick "Both" for the Cosmic Convergence galactic event during
+     * game setup?
+     */
+    public static boolean drawsFromBothSystems(Game game) {
+        return game.isCosmicConvergenceMode()
+                && CC_SYSTEMS_BOTH.equalsIgnoreCase(game.getStoredValue(CC_SYSTEMS_OPTION_KEY));
+    }
+
+    /**
+     * "Both" option: each draw randomly comes from the expanded fracture pool
+     * (ef1-ef12) or from the Refracture cluster pool, falling back to the
+     * other pool when the first pick is exhausted.
+     */
+    private static void drawFromCombinedCCPool(ButtonInteractionEvent event, Game game, Player player) {
+        boolean tryRefractureFirst = RandomHelper.isOneInX(2);
+        if (tryRefractureFirst) {
+            if (hasPlaceableRefractureCluster(game)) {
+                drawAndOfferPlacementOfRefractureCluster(event, game, player);
+            } else {
+                drawAndOfferPlacementOfCCTile(event, game, player);
+            }
+        } else {
+            if (hasRemainingCCTile(game)) {
+                drawAndOfferPlacementOfCCTile(event, game, player);
+            } else {
+                drawAndOfferPlacementOfRefractureCluster(event, game, player);
+            }
+        }
+    }
+
+    private static boolean hasPlaceableRefractureCluster(Game game) {
+        return RefractureCCDrawPool.clusters().stream()
+                .filter(cluster -> cluster.isAvailableIn(game))
+                .anyMatch(cluster ->
+                        ccEligiblePlacements(cluster).stream().anyMatch(placement -> placement.canBePlacedIn(game)));
+    }
+
+    private static boolean hasRemainingCCTile(Game game) {
+        List<String> inPlay = new ArrayList<>();
+        game.getTileMap().values().forEach(tile -> inPlay.add(tile.getTileID()));
+        for (int i = 1; i <= 12; i++) {
+            if (!inPlay.contains("ef" + i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Positions of the base Fracture region (frac1-frac7). In Cosmic
+     * Convergence there is no default Fracture, so that band is normal board
+     * space: Refracture clusters drawn from the Cosmic Convergence pool must
+     * not use it. Pure Refracture games keep using these placements via the
+     * layout registry and are unaffected by this rule.
+     */
+    private static final Set<String> BASE_FRACTURE_POSITIONS =
+            Set.of("frac1", "frac2", "frac3", "frac4", "frac5", "frac6", "frac7");
+
+    private static boolean isCCPlacement(RefractureCCDrawPool.Placement placement) {
+        return placement.tiles().stream()
+                .noneMatch(tilePlacement -> BASE_FRACTURE_POSITIONS.contains(tilePlacement.position()));
+    }
+
+    private static List<RefractureCCDrawPool.Placement> ccEligiblePlacements(RefractureCCDrawPool.Cluster cluster) {
+        return cluster.placements().stream()
+                .filter(FractureService::isCCPlacement)
+                .toList();
     }
 
     /**
@@ -129,7 +200,8 @@ public class FractureService {
                             + " has no Refracture tiles left to draw: all of them are already in play.");
             return;
         }
-        pool.removeIf(cluster -> cluster.placements().stream().noneMatch(placement -> placement.canBePlacedIn(game)));
+        pool.removeIf(cluster ->
+                ccEligiblePlacements(cluster).stream().noneMatch(placement -> placement.canBePlacedIn(game)));
         if (pool.isEmpty()) {
             MessageHelper.sendMessageToChannel(
                     event.getMessageChannel(),
@@ -154,7 +226,7 @@ public class FractureService {
         List<Button> buttons = new ArrayList<>();
         for (int pIdx = 0; pIdx < drawn.placements().size(); pIdx++) {
             RefractureCCDrawPool.Placement placement = drawn.placements().get(pIdx);
-            if (!placement.canBePlacedIn(game)) continue;
+            if (!isCCPlacement(placement) || !placement.canBePlacedIn(game)) continue;
             buttons.add(Buttons.green(
                     player.factionButtonChecker() + "cosmicConStep3Ref_" + drawn.id() + "_" + pIdx,
                     "Place at " + placement.anchorPosition()));
@@ -173,9 +245,10 @@ public class FractureService {
 
     @ButtonHandler("cosmicConStep3_")
     private static void placeDrawnCCTile(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
-        String[] parts = buttonID.split("_");
-        String tileID = parts[2];
-        String position = parts[3];
+        String tail = buttonID.substring(buttonID.indexOf("cosmicConStep3_") + "cosmicConStep3_".length());
+        String[] parts = tail.split("_");
+        String tileID = parts[0];
+        String position = parts[1];
         Tile tile = new Tile(tileID, position);
         game.setTile(tile);
         MessageHelper.sendMessageToChannel(
@@ -187,9 +260,10 @@ public class FractureService {
     @ButtonHandler("cosmicConStep3Ref_")
     private static void placeDrawnRefractureCluster(
             ButtonInteractionEvent event, Game game, Player player, String buttonID) {
-        String[] parts = buttonID.split("_");
-        int clusterId = Integer.parseInt(parts[2]);
-        int placementIdx = Integer.parseInt(parts[3]);
+        String tail = buttonID.substring(buttonID.indexOf("cosmicConStep3Ref_") + "cosmicConStep3Ref_".length());
+        String[] parts = tail.split("_");
+        int clusterId = Integer.parseInt(parts[0]);
+        int placementIdx = Integer.parseInt(parts[1]);
         RefractureCCDrawPool.Cluster drawn = RefractureCCDrawPool.clusters().stream()
                 .filter(cluster -> cluster.id() == clusterId)
                 .findFirst()
@@ -378,6 +452,8 @@ public class FractureService {
                     }
                     if (drawsFromRefractureSystems(game)) {
                         drawAndOfferPlacementOfRefractureCluster(event, game, player);
+                    } else if (drawsFromBothSystems(game)) {
+                        drawFromCombinedCCPool(event, game, player);
                     } else {
                         drawAndOfferPlacementOfCCTile(event, game, player);
                     }

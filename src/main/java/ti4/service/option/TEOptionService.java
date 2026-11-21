@@ -264,9 +264,14 @@ public class TEOptionService {
     public static void ccSystemsSet(ButtonInteractionEvent event, Game game, String buttonID) {
         String choice = buttonID.split("_")[1];
         game.setStoredValue(FractureService.CC_SYSTEMS_OPTION_KEY, choice);
-        String label = FractureService.CC_SYSTEMS_REFRACTURE.equalsIgnoreCase(choice)
-                ? "Refracture Systems (all Refracture tiles, including multi-hex clusters)"
-                : "Cosmic Convergence Systems (ef1-ef12)";
+        String label;
+        if (FractureService.CC_SYSTEMS_REFRACTURE.equalsIgnoreCase(choice)) {
+            label = "Refracture Systems (all Refracture tiles, including multi-hex clusters)";
+        } else if (FractureService.CC_SYSTEMS_BOTH.equalsIgnoreCase(choice)) {
+            label = "Both (each draw randomly uses Cosmic Convergence or Refracture systems)";
+        } else {
+            label = "Cosmic Convergence Systems (ef1-ef12)";
+        }
         MessageHelper.sendMessageToChannel(
                 event.getMessageChannel(), "Cosmic Convergence will draw new fracture tiles from: **" + label + "**");
         ButtonHelper.deleteMessage(event);
