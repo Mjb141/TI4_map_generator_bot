@@ -487,6 +487,7 @@ public class JdaService {
         adminRoles.add(jda.getRoleById("1516450864376578238")); // Stabar's Server
         adminRoles.add(jda.getRoleById("1527947707518423150")); // niugnip's Server
 
+        adminRoles.add(jda.getRoleById("1573798729960390717")); // Mjb's Test Server (Admin)
         adminRoles.removeIf(Objects::isNull);
 
         // DEVELOPER ROLES
@@ -527,6 +528,7 @@ public class JdaService {
         developerRoles.add(jda.getRoleById("1516450864376578238")); // Stabar's Server
         developerRoles.add(jda.getRoleById("1527947972615209041")); // niugnip's Server
 
+        developerRoles.add(jda.getRoleById("1573798854724288624")); // Mjb's Test Server (Developer)
         developerRoles.removeIf(Objects::isNull);
 
         // TIGL ADMIN ROLES
@@ -578,6 +580,7 @@ public class JdaService {
         bothelperRoles.add(jda.getRoleById("1516450864376578238")); // Stabar's Server
         bothelperRoles.add(jda.getRoleById("1527947912108183686")); // niugnip's Server
 
+        bothelperRoles.add(jda.getRoleById("1573798886626168935")); // Mjb's Test Server (Bothelper)
         bothelperRoles.removeIf(Objects::isNull);
     }
 

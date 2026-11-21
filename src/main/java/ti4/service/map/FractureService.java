@@ -41,6 +41,181 @@ public class FractureService {
 
     private static final String PENDING_ROLLS_KEY = "pendingFractureRolls";
 
+    /** Stored-value setup choice of which systems Cosmic Convergence draws from. */
+    public static final String CC_SYSTEMS_OPTION_KEY = "cosmicConvergenceSystemsOption";
+
+    public static final String CC_SYSTEMS_EXPANDED_FRACTURE = "cosmicConvergenceSystems";
+    public static final String CC_SYSTEMS_REFRACTURE = "refractureSystems";
+
+    /**
+     * Did the GM pick "Refracture Systems" for the Cosmic Convergence galactic
+     * event during game setup?
+     */
+    public static boolean drawsFromRefractureSystems(Game game) {
+        return game.isCosmicConvergenceMode()
+                && CC_SYSTEMS_REFRACTURE.equalsIgnoreCase(game.getStoredValue(CC_SYSTEMS_OPTION_KEY));
+    }
+
+    /**
+     * Cosmic Convergence default draw: one of the twelve fixed expanded
+     * fracture tiles (ef1-ef12), then buttons to choose its placement.
+     */
+    private static void drawAndOfferPlacementOfCCTile(ButtonInteractionEvent event, Game game, Player player) {
+        List<String> redTilesToPullFrom = new ArrayList<>(
+                List.of("ef1", "ef2", "ef3", "ef4", "ef5", "ef6", "ef7", "ef8", "ef9", "ef10", "ef11", "ef12"));
+        redTilesToPullFrom.removeAll(
+                game.getTileMap().values().stream().map(Tile::getTileID).toList());
+        if (redTilesToPullFrom.isEmpty()) {
+            MessageHelper.sendMessageToChannel(
+                    event.getMessageChannel(),
+                    player.getRepresentation()
+                            + " has no Cosmic Convergence tiles left to draw: all of them are already in play.");
+            return;
+        }
+        List<String> tileToPullFromUnshuffled = new ArrayList<>(redTilesToPullFrom);
+        Collections.shuffle(redTilesToPullFrom, RandomHelper.current());
+        String newTileID = redTilesToPullFrom.getFirst();
+        TileModel tile = TileHelper.getTileById(newTileID);
+        MessageHelper.sendMessageToChannel(
+                event.getMessageChannel(),
+                player.getRepresentation() + " drew 1 fracture tile from this list:\n> " + tileToPullFromUnshuffled);
+        if (tile == null) {
+            MessageHelper.sendMessageToChannel(event.getMessageChannel(), "Could not find tile " + newTileID + ".");
+            return;
+        }
+        event.getMessageChannel()
+                .sendMessageEmbeds(tile.getRepresentationEmbed(false))
+                .queue(Consumers.nop(), BotLogger::catchRestError);
+
+        List<Button> buttons = new ArrayList<>();
+        List<String> directlyAdjacentTiles =
+                new ArrayList<>(List.of("frac9", "frac10", "frac14", "frac15", "frac19", "frac20", "frac22", "frac23"));
+        if ("ef2".equalsIgnoreCase(newTileID)) {
+            directlyAdjacentTiles = new ArrayList<>(List.of("tl", "tr", "bl", "br"));
+        }
+        for (String pos : directlyAdjacentTiles) {
+            if (game.getTileByPosition(pos) == null) {
+                buttons.add(
+                        Buttons.green(player.factionButtonChecker() + "cosmicConStep3_" + newTileID + "_" + pos, pos));
+            }
+        }
+        if (buttons.isEmpty()) {
+            MessageHelper.sendMessageToChannel(
+                    event.getMessageChannel(),
+                    player.getRepresentation() + " drew " + newTileID
+                            + ", but there is no free location left to place it in.");
+            return;
+        }
+        MessageHelper.sendMessageToChannelWithButtons(
+                player.getCorrectChannel(),
+                player.getRepresentation()
+                        + ", please choose the location for the new tile (it probably doesnt matter too much).",
+                buttons);
+    }
+
+    /**
+     * Cosmic Convergence alternative draw: one physical Refracture tile (a
+     * single tile or a multi-hex cluster), then buttons for every placement
+     * that fits on the current board.
+     */
+    private static void drawAndOfferPlacementOfRefractureCluster(
+            ButtonInteractionEvent event, Game game, Player player) {
+        List<RefractureCCDrawPool.Cluster> pool = new ArrayList<>(RefractureCCDrawPool.clusters());
+        pool.removeIf(cluster -> !cluster.isAvailableIn(game));
+        if (pool.isEmpty()) {
+            MessageHelper.sendMessageToChannel(
+                    event.getMessageChannel(),
+                    player.getRepresentation()
+                            + " has no Refracture tiles left to draw: all of them are already in play.");
+            return;
+        }
+        pool.removeIf(cluster -> cluster.placements().stream().noneMatch(placement -> placement.canBePlacedIn(game)));
+        if (pool.isEmpty()) {
+            MessageHelper.sendMessageToChannel(
+                    event.getMessageChannel(),
+                    player.getRepresentation()
+                            + " drew a Refracture tile, but none of the remaining ones can be placed.");
+            return;
+        }
+        Collections.shuffle(pool, RandomHelper.current());
+        RefractureCCDrawPool.Cluster drawn = pool.getFirst();
+
+        List<MessageEmbed> tileEmbeds = new ArrayList<>();
+        for (String tileId : drawn.tileIds()) {
+            TileModel tileModel = TileHelper.getTileById(tileId);
+            if (tileModel != null) tileEmbeds.add(tileModel.getRepresentationEmbed(false));
+        }
+        MessageHelper.sendMessageToChannel(
+                event.getMessageChannel(),
+                player.getRepresentation() + " drew the Refracture tile **" + drawn.name() + "** ("
+                        + String.join(", ", drawn.tileIds()) + ")");
+        event.getMessageChannel().sendMessageEmbeds(tileEmbeds).queue(Consumers.nop(), BotLogger::catchRestError);
+
+        List<Button> buttons = new ArrayList<>();
+        for (int pIdx = 0; pIdx < drawn.placements().size(); pIdx++) {
+            RefractureCCDrawPool.Placement placement = drawn.placements().get(pIdx);
+            if (!placement.canBePlacedIn(game)) continue;
+            buttons.add(Buttons.green(
+                    player.factionButtonChecker() + "cosmicConStep3Ref_" + drawn.id() + "_" + pIdx,
+                    "Place at " + placement.anchorPosition()));
+        }
+        if (buttons.isEmpty()) {
+            MessageHelper.sendMessageToChannel(
+                    event.getMessageChannel(),
+                    player.getRepresentation() + " cannot place **" + drawn.name() + "** anywhere.");
+            return;
+        }
+        MessageHelper.sendMessageToChannelWithButtons(
+                player.getCorrectChannel(),
+                player.getRepresentation() + ", please choose the placement for **" + drawn.name() + "**.",
+                buttons);
+    }
+
+    @ButtonHandler("cosmicConStep3_")
+    private static void placeDrawnCCTile(ButtonInteractionEvent event, Game game, Player player, String buttonID) {
+        String[] parts = buttonID.split("_");
+        String tileID = parts[2];
+        String position = parts[3];
+        Tile tile = new Tile(tileID, position);
+        game.setTile(tile);
+        MessageHelper.sendMessageToChannel(
+                player.getCorrectChannel(),
+                "Placed " + tile.getRepresentationForButtons(game, player) + " at " + position + ".");
+        ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
+    }
+
+    @ButtonHandler("cosmicConStep3Ref_")
+    private static void placeDrawnRefractureCluster(
+            ButtonInteractionEvent event, Game game, Player player, String buttonID) {
+        String[] parts = buttonID.split("_");
+        int clusterId = Integer.parseInt(parts[2]);
+        int placementIdx = Integer.parseInt(parts[3]);
+        RefractureCCDrawPool.Cluster drawn = RefractureCCDrawPool.clusters().stream()
+                .filter(cluster -> cluster.id() == clusterId)
+                .findFirst()
+                .orElse(null);
+        if (drawn == null
+                || placementIdx < 0
+                || placementIdx >= drawn.placements().size()) {
+            ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
+            return;
+        }
+        RefractureCCDrawPool.Placement placement = drawn.placements().get(placementIdx);
+        if (!placement.canBePlacedIn(game)) {
+            MessageHelper.sendMessageToChannel(
+                    player.getCorrectChannel(),
+                    "That placement no longer fits: some of its hexes are already occupied.");
+            ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
+            return;
+        }
+        RefractureCCDrawPool.place(event, game, placement);
+        MessageHelper.sendMessageToChannel(
+                player.getCorrectChannel(),
+                "Placed **" + drawn.name() + "** (" + String.join(", ", drawn.tileIds()) + ") at "
+                        + placement.anchorPosition() + ".");
+        ButtonHelper.deleteButtonAndDeleteMessageIfEmpty(event);
+    }
+
     /**
      * Is there any Fracture space on the board, whether from a tile or from a
      * fracture token?
@@ -201,52 +376,11 @@ public class FractureService {
                                     game.getMainGameChannel(), "## Please only place one ingress token.");
                         }
                     }
-                    String newTileID = "";
-                    List<String> redTilesToPullFrom = new ArrayList<>(List.of(
-                            "ef1", "ef2", "ef3", "ef4", "ef5", "ef6", "ef7", "ef8", "ef9", "ef10", "ef11", "ef12"));
-                    List<Button> buttons = new ArrayList<>();
-                    redTilesToPullFrom.removeAll(game.getTileMap().values().stream()
-                            .map(Tile::getTileID)
-                            .toList());
-                    List<String> tileToPullFromUnshuffled = new ArrayList<>(redTilesToPullFrom);
-                    Collections.shuffle(redTilesToPullFrom, RandomHelper.current());
-                    List<MessageEmbed> tileEmbeds = new ArrayList<>();
-                    List<String> ids = new ArrayList<>();
-
-                    String tileID = redTilesToPullFrom.getFirst();
-                    ids.add(tileID);
-                    TileModel tile = TileHelper.getTileById(tileID);
-                    tileEmbeds.add(tile.getRepresentationEmbed(false));
-
-                    MessageHelper.sendMessageToChannel(
-                            event.getMessageChannel(),
-                            player.getRepresentation() + " drew 1 fracture tile from this list:\n> "
-                                    + tileToPullFromUnshuffled);
-
-                    event.getMessageChannel()
-                            .sendMessageEmbeds(tileEmbeds)
-                            .queue(Consumers.nop(), BotLogger::catchRestError);
-
-                    newTileID = ids.getFirst();
-                    List<String> directlyAdjacentTiles = new ArrayList<>(
-                            List.of("frac9", "frac10", "frac14", "frac15", "frac19", "frac20", "frac22", "frac23"));
-                    if ("ef2".equalsIgnoreCase(newTileID)) {
-                        directlyAdjacentTiles = new ArrayList<>(List.of("tl", "tr", "bl", "br"));
+                    if (drawsFromRefractureSystems(game)) {
+                        drawAndOfferPlacementOfRefractureCluster(event, game, player);
+                    } else {
+                        drawAndOfferPlacementOfCCTile(event, game, player);
                     }
-                    for (String pos : directlyAdjacentTiles) {
-                        Tile tile2 = game.getTileByPosition(pos);
-                        if (tile2 == null) {
-                            buttons.add(Buttons.green(
-                                    player.factionButtonChecker() + "cosmicConStep3_" + newTileID + "_" + pos, pos));
-                        }
-                    }
-
-                    MessageHelper.sendMessageToChannelWithButtons(
-                            player.getCorrectChannel(),
-                            player.getRepresentation()
-                                    + ", please choose the location for the new tile (it probably doesnt matter too much).",
-                            buttons);
-
                 } else {
                     if (spawnFracture(event, game, game.isRefractureMode() && result == 10)) {
                         String msg = player.getRepresentation(false, false) + " rolled a " + diceDisplay

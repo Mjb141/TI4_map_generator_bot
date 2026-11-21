@@ -16,6 +16,7 @@ import ti4.logging.BotLogger;
 import ti4.message.MessageHelper;
 import ti4.model.Mapper;
 import ti4.model.TechnologyModel;
+import ti4.service.map.FractureService;
 import ti4.service.option.TEOptionService;
 
 @UtilityClass
@@ -105,7 +106,23 @@ class GalacticEventButtonHandler {
         }
         if ("CosmicConvergence".equalsIgnoreCase(mode)) {
             game.setCosmicConvergenceMode(enable);
-            message += "Cosmic Convergence Mode. Nothing more needs to be done.";
+            message += "Cosmic Convergence Mode. ";
+            if (enable) {
+                message += "Please choose which systems it draws new fracture tiles from.";
+                game.removeStoredValue(FractureService.CC_SYSTEMS_OPTION_KEY);
+                List<Button> ccSystemsButtons = new ArrayList<>(List.of(
+                        Buttons.green(
+                                "ccSystemsSet_" + FractureService.CC_SYSTEMS_EXPANDED_FRACTURE,
+                                "Use Cosmic Convergence Systems (ef1-ef12)"),
+                        Buttons.blue(
+                                "ccSystemsSet_" + FractureService.CC_SYSTEMS_REFRACTURE, "Use Refracture Systems")));
+                MessageHelper.sendMessageToChannel(
+                        event.getChannel(),
+                        "Please choose which systems Cosmic Convergence draws its new fracture tiles from:",
+                        ccSystemsButtons);
+            } else {
+                message += "Nothing more needs to be done.";
+            }
         }
         if ("CallOfTheVoid".equalsIgnoreCase(mode)) {
             game.setCallOfTheVoidMode(enable);

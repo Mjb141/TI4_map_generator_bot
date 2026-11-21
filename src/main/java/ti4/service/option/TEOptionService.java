@@ -34,6 +34,7 @@ import ti4.service.emoji.TI4Emoji;
 import ti4.service.fow.GMService;
 import ti4.service.franken.FrankenDraftBagService;
 import ti4.service.game.MonumentsService;
+import ti4.service.map.FractureService;
 
 @UtilityClass
 public class TEOptionService {
@@ -256,6 +257,18 @@ public class TEOptionService {
         }
         game.setStoredValue(Constants.TK_NOVA_CUP + "_setup_option", optionId);
         postTkNovaSetupOptions(game);
+        ButtonHelper.deleteMessage(event);
+    }
+
+    @ButtonHandler("ccSystemsSet_")
+    public static void ccSystemsSet(ButtonInteractionEvent event, Game game, String buttonID) {
+        String choice = buttonID.split("_")[1];
+        game.setStoredValue(FractureService.CC_SYSTEMS_OPTION_KEY, choice);
+        String label = FractureService.CC_SYSTEMS_REFRACTURE.equalsIgnoreCase(choice)
+                ? "Refracture Systems (all Refracture tiles, including multi-hex clusters)"
+                : "Cosmic Convergence Systems (ef1-ef12)";
+        MessageHelper.sendMessageToChannel(
+                event.getMessageChannel(), "Cosmic Convergence will draw new fracture tiles from: **" + label + "**");
         ButtonHelper.deleteMessage(event);
     }
 
